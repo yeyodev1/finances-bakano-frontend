@@ -1,0 +1,39 @@
+// Brand colors - Bakano Finanzas
+$primary: #e6285c;
+$primary-dark: #191423;
+$primary-light: #f5f3ef;
+$secondary: #85529c;
+$secondary-dark: #5c3070;
+
+$white: #ffffff;
+$text-light: #f5f5f5;
+$text-secondary: #6b7280;
+$overlay-purple: rgba($secondary, 0.1);
+
+// Extended brand palette
+$BAKANO-GREEN: #3bb77e;
+
+// Alert colors
+$alert-warning: #f59e0b;
+$alert-info: #3b82f6;
+$alert-success: #10b981;
+$alert-error: #ef4444;
+$alert-warning-bg: rgba($alert-warning, 0.1);
+$alert-info-bg: rgba($alert-info, 0.1);
+$alert-success-bg: rgba($alert-success, 0.1);
+$alert-error-bg: rgba($alert-error, 0.1);
+
+// Neutrals derived for surfaces / borders
+$surface: $white;
+$surface-alt: $primary-light;
+$border-color: rgba($primary-dark, 0.1);
+$border-strong: rgba($primary-dark, 0.18);
+$muted: rgba($primary-dark, 0.55);
+
+// Status colors for collections
+$status-paid: $alert-success;
+$status-pending: $alert-warning;
+$status-overdue: $alert-error;
+$status-partial: $alert-info;
+$status-waived: $text-secondary;
+$status-cancelled: rgba($primary-dark, 0.35);
