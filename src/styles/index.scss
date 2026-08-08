@@ -1,0 +1,37 @@
+@forward 'colorVariables.module.scss';
+@forward 'fonts.module.scss';
+@forward 'tokens.module.scss';
+@forward 'mixins.module.scss';
+
+@use "sass:color";
+@use "sass:math";
+@use "sass:meta";
+
+@function _to-percent($value) {
+  @if meta.type-of($value) == 'number' and math.unit($value) == '%' {
+    @return $value;
+  }
+  @return $value * 1%;
+}
+
+@function lighten($c, $amount, $method: 'adjust') {
+  $pct: _to-percent($amount);
+  @if $method == 'scale' {
+    @return color.scale($c, $lightness: $pct);
+  }
+  @return color.adjust($c, $lightness: $pct);
+}
+
+@function darken($c, $amount, $method: 'adjust') {
+  $pct: _to-percent($amount);
+  @if $method == 'scale' {
+    @return color.scale($c, $lightness: -$pct);
+  }
+  @return color.adjust($c, $lightness: -$pct);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
