@@ -70,6 +70,9 @@ function toggleSettle() {
   if (settleAll.value) {
     settleAmount.value = Number(openTotal.value.toFixed(2))
     settleDate.value = toISODate(new Date()) || ''
+    // Preseleccionar cómo cobra este cliente, no un método fijo.
+    const m = selectedClient.value?.paymentMethod
+    settleMethod.value = m && m !== 'no_paga' ? m : 'transferencia'
     creating.value = false
   }
 }

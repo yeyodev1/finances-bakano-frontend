@@ -12,9 +12,9 @@ import {
 import ReceiptDropzone from './ReceiptDropzone.vue'
 import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
-import { PAYMENT_METHOD_OPTIONS, apiErrorMessage } from '@/stores/clients'
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS, apiErrorMessage } from '@/stores/clients'
 import { usePaymentsStore } from '@/stores/payments'
-import type { Invoice, PaymentMethod } from '@/types'
+import type { Client, Invoice, PaymentMethod } from '@/types'
 
 const props = defineProps<{ modelValue: boolean; invoice: Invoice | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; registered: [] }>()
@@ -34,6 +34,14 @@ const form = reactive({
 const receipt = ref<File | null>(null)
 const errors = reactive<Record<string, string>>({})
 
+/** Cómo cobra este cliente. Llega poblado desde el listado de cobros. */
+const clientMethod = computed<PaymentMethod>(() => {
+  const raw = props.invoice?.clientId as string | Client | undefined
+  const method = typeof raw === 'object' ? raw?.paymentMethod : undefined
+  // `no_paga` no es una forma de cobro real; en ese caso se pide elegirla.
+  return method && method !== 'no_paga' ? method : 'transferencia'
+})
+
 const balance = computed(() => {
   if (!props.invoice) return 0
   return Math.max(Number(props.invoice.amount) - Number(props.invoice.paidAmount || 0), 0)
@@ -49,7 +57,9 @@ watch(
     form.paidAt = toISODate(new Date()) || ''
     form.reference = ''
     form.notes = ''
-    form.method = 'transferencia'
+    // El método lo define el cliente: 14 de ellos cobran por Stripe y dejarlo
+    // fijo en transferencia etiquetaba mal todos sus pagos.
+    form.method = clientMethod.value
   },
 )
 
@@ -126,7 +136,12 @@ async function submit() {
       </div>
 
       <div class="grid">
-        <BaseSelect v-model="form.method" :options="PAYMENT_METHOD_OPTIONS" label="Método de pago" />
+        <BaseSelect
+          v-model="form.method"
+          :options="PAYMENT_METHOD_OPTIONS"
+          label="Método de pago"
+          :hint="`${invoice?.clientName ?? 'Este cliente'} cobra por ${PAYMENT_METHOD_LABELS[clientMethod]}`"
+        />
         <BaseInput v-model="form.reference" label="Referencia" placeholder="N.º de transferencia o cheque" />
       </div>
 
