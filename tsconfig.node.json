@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    // Sin esto, `vue-tsc -b` compila vite.config.ts y deja un vite.config.js al lado.
+    // Vite prioriza el .js sobre el .ts, así que la config real dejaba de aplicarse.
+    "noEmit": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
