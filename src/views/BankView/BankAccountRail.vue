@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { BaseSkeleton } from '@/components/base'
 import { useFormat } from '@/composables/useFormat'
 import type { BankAccount } from '@/types'
 
@@ -44,7 +45,18 @@ function share(account: BankAccount): number {
 
 <template>
   <div class="rail" role="tablist" aria-label="Cuentas">
+    <!-- Mientras cargan, se reserva el mismo espacio que van a ocupar las cuentas. -->
+    <template v-if="props.loading && !props.accounts.length">
+      <div v-for="n in 4" :key="`sk-${n}`" class="rail__item rail__item--loading" aria-hidden="true">
+        <BaseSkeleton width="60%" height="11px" />
+        <BaseSkeleton width="80%" height="20px" />
+        <BaseSkeleton height="3px" />
+        <BaseSkeleton width="45%" height="9px" />
+      </div>
+    </template>
+
     <button
+      v-else
       v-for="account in props.accounts"
       :key="account.id"
       type="button"
@@ -128,6 +140,16 @@ function share(account: BankAccount): number {
   &:focus-visible {
     outline: 2px solid rgba($white, 0.7);
     outline-offset: 2px;
+  }
+
+  // Placeholder de carga: mismo tamaño, sin interacción.
+  &--loading {
+    cursor: default;
+    pointer-events: none;
+
+    :deep(.skeleton) {
+      background: rgba($white, 0.12);
+    }
   }
 
   // Estado seleccionado: fondo claro sobre el panel oscuro, sin depender del color del borde.

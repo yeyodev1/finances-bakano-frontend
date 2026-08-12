@@ -76,6 +76,9 @@ const rangeLabel = computed(() => {
 
 const failingCount = computed(() => store.failingSubscriptions.length)
 
+/** Primera carga: todavía no hay saldos que mostrar, ni siquiera viejos. */
+const isLoadingBalances = computed(() => store.loadingOverview && !store.accounts.length)
+
 onMounted(async () => {
   const data = await store.loadOverview()
   if (!data) {
@@ -123,17 +126,21 @@ async function refresh() {
       <header class="hero__top">
         <div>
           <p class="hero__label">Saldo total en Mercury</p>
-          <p class="hero__total">
-            <BaseSkeleton v-if="store.loadingOverview && !store.accounts.length" height="46px" width="220px" />
-            <template v-else>{{ formatMoney(store.totalBalance) }}</template>
-          </p>
-          <p class="hero__detail">
-            {{ formatMoney(store.availableBalance) }} disponible
-            <template v-if="held > 0.005"> · {{ formatMoney(held) }} retenido</template>
-            <template v-if="store.pendingCount">
-              · {{ store.pendingCount }} movimientos por postear
-            </template>
-          </p>
+          <template v-if="isLoadingBalances">
+            <p class="hero__total"><BaseSkeleton height="46px" width="240px" /></p>
+            <p class="hero__detail"><BaseSkeleton height="12px" width="300px" /></p>
+          </template>
+
+          <template v-else>
+            <p class="hero__total">{{ formatMoney(store.totalBalance) }}</p>
+            <p class="hero__detail">
+              {{ formatMoney(store.availableBalance) }} disponible
+              <template v-if="held > 0.005"> · {{ formatMoney(held) }} retenido</template>
+              <template v-if="store.pendingCount">
+                · {{ store.pendingCount }} movimientos por postear
+              </template>
+            </p>
+          </template>
         </div>
 
         <div class="hero__actions">
@@ -193,12 +200,18 @@ async function refresh() {
       <!-- ── Todo el detalle vive en pestañas: nada queda enterrado abajo ── -->
       <section class="detail">
         <header class="detail__head">
-          <h2>{{ accountName }}</h2>
-          <p v-if="store.account?.accountNumber">
-            ··{{ store.account.accountNumber.slice(-4) }} ·
-            {{ formatMoney(store.account.currentBalance) }} ·
-            {{ store.pendingCount }} por postear
-          </p>
+          <template v-if="isLoadingBalances">
+            <BaseSkeleton height="18px" width="180px" />
+            <BaseSkeleton height="11px" width="240px" />
+          </template>
+          <template v-else>
+            <h2>{{ accountName }}</h2>
+            <p v-if="store.account?.accountNumber">
+              ··{{ store.account.accountNumber.slice(-4) }} ·
+              {{ formatMoney(store.account.currentBalance) }} ·
+              {{ store.pendingCount }} por postear
+            </p>
+          </template>
         </header>
 
         <BaseTabs v-model="tab" :tabs="tabs" />
@@ -211,7 +224,10 @@ async function refresh() {
                 :subtitle="`Neto de este mes: ${formatMoney(netMonth)}`"
                 icon="fa-solid fa-chart-column"
               >
-                <BankCashflowChart :points="store.overview?.cashflow || []" />
+                <BankCashflowChart
+                  :points="store.overview?.cashflow || []"
+                  :loading="store.loadingOverview"
+                />
               </BaseCard>
 
               <BaseCard

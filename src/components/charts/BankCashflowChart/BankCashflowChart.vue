@@ -12,8 +12,9 @@ const props = withDefaults(
   defineProps<{
     points?: BankCashflowPoint[]
     height?: number
+    loading?: boolean
   }>(),
-  { points: () => [], height: 280 },
+  { points: () => [], height: 280, loading: false },
 )
 
 const { formatPeriodShort } = useFormat()
@@ -81,7 +82,19 @@ const options = computed<ChartOptions<'bar'>>(() => ({
 
 <template>
   <div class="chartbox" :style="{ height: `${height}px` }">
-    <Bar v-if="hasData" :data="chartData" :options="options" />
+    <!-- Mientras carga se dibujan barras fantasma: decir "sin movimientos" antes de tener
+         los datos hace creer que la cuenta está vacía. -->
+    <div v-if="props.loading && !hasData" class="chartbox__loading" aria-hidden="true">
+      <span
+        v-for="(h, i) in [45, 70, 55, 85, 40, 65]"
+        :key="i"
+        class="chartbox__bar"
+        :style="{ height: `${h}%` }"
+      />
+    </div>
+
+    <Bar v-else-if="hasData" :data="chartData" :options="options" />
+
     <div v-else class="chartbox__empty">
       <i class="fa-solid fa-chart-column" />
       <p>Sin movimientos en el período analizado</p>
@@ -94,6 +107,42 @@ const options = computed<ChartOptions<'bar'>>(() => ({
   position: relative;
   width: 100%;
   min-height: 200px;
+}
+
+.chartbox__loading {
+  @include flex(row, space-around, flex-end, $sp-3);
+  height: 100%;
+  padding: $sp-4 0;
+}
+
+.chartbox__bar {
+  flex: 1 1 0;
+  max-width: 42px;
+  border-radius: $radius-sm $radius-sm 0 0;
+  background: linear-gradient(180deg, rgba($primary-dark, 0.1), rgba($primary-dark, 0.04));
+  animation: chartbox-pulse 1.4s ease-in-out infinite;
+
+  @for $i from 1 through 6 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.09}s;
+    }
+  }
+}
+
+@keyframes chartbox-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chartbox__bar {
+    animation: none;
+  }
 }
 
 .chartbox__empty {

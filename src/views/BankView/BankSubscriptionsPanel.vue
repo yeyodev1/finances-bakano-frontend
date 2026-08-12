@@ -31,6 +31,9 @@ const totals = computed(() => props.totals)
 const history = computed(() => props.report?.history ?? null)
 
 const allCount = computed(() => props.report?.items.length ?? 0)
+
+/** Primera carga: no hay cifras previas, así que se muestran placeholders y no ceros. */
+const isFirstLoad = computed(() => props.loading && !props.report)
 const isFiltered = computed(() => items.value.length !== allCount.value)
 
 const failing = computed(() => items.value.filter((item) => item.status === 'failing'))
@@ -54,24 +57,34 @@ const columns: TableColumn[] = [
   <div class="bsub">
     <!-- ── Lo que cuesta al mes, en una línea ────────────────── -->
     <div class="bsub__summary">
-      <div class="bsub__figure">
-        <span class="bsub__figure-label">Cuesta al mes</span>
-        <strong>{{ formatMoney(totals?.monthlyCost) }}</strong>
-        <small>{{ formatMoney(totals?.yearlyCost) }} al año</small>
-      </div>
+      <template v-if="isFirstLoad">
+        <div v-for="n in 3" :key="`sk-${n}`" class="bsub__figure">
+          <BaseSkeleton width="70px" height="9px" />
+          <BaseSkeleton width="110px" height="22px" />
+          <BaseSkeleton width="90px" height="9px" />
+        </div>
+      </template>
 
-      <div class="bsub__figure">
-        <span class="bsub__figure-label">Servicios</span>
-        <strong>{{ totals?.count ?? 0 }}</strong>
-        <small v-if="isFiltered">de {{ allCount }} detectados</small>
-        <small v-else>cobros recurrentes</small>
-      </div>
+      <template v-else>
+        <div class="bsub__figure">
+          <span class="bsub__figure-label">Cuesta al mes</span>
+          <strong>{{ formatMoney(totals?.monthlyCost) }}</strong>
+          <small>{{ formatMoney(totals?.yearlyCost) }} al año</small>
+        </div>
 
-      <div class="bsub__figure" :class="{ 'bsub__figure--bad': totals?.failing }">
-        <span class="bsub__figure-label">Rechazados</span>
-        <strong>{{ totals?.failing ?? 0 }}</strong>
-        <small>{{ formatMoney(failedAmount) }} sin cobrar</small>
-      </div>
+        <div class="bsub__figure">
+          <span class="bsub__figure-label">Servicios</span>
+          <strong>{{ totals?.count ?? 0 }}</strong>
+          <small v-if="isFiltered">de {{ allCount }} detectados</small>
+          <small v-else>cobros recurrentes</small>
+        </div>
+
+        <div class="bsub__figure" :class="{ 'bsub__figure--bad': totals?.failing }">
+          <span class="bsub__figure-label">Rechazados</span>
+          <strong>{{ totals?.failing ?? 0 }}</strong>
+          <small>{{ formatMoney(failedAmount) }} sin cobrar</small>
+        </div>
+      </template>
     </div>
 
     <slot name="filters" />
