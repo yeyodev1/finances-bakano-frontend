@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import api from '@/services/api.service'
-import type { ArchiveReason, BillingType, Client, PaymentMethod, SelectOption } from '@/types'
+import type {
+  ArchiveReason,
+  BillingType,
+  Client,
+  ClientCategory,
+  PaymentMethod,
+  SelectOption,
+} from '@/types'
 
 export function apiErrorMessage(error: unknown, fallback = 'Ocurrió un error inesperado'): string {
   const err = error as { response?: { data?: { message?: string; error?: string } }; message?: string }
@@ -59,6 +66,7 @@ export interface ClientFilters {
   isActive: boolean | null
   hasWorkspace: boolean | null
   tag: string | null
+  categoryId: string | null
   archived: ArchivedFilter
 }
 
@@ -88,6 +96,7 @@ export interface ClientsState {
    * modal lo reutiliza, el cliente que no entró en la página (o que el filtro
    * dejó fuera) desaparece del desplegable sin explicación.
    */
+  categories: ClientCategory[]
   picker: Client[]
   pickerLoading: boolean
   pickerLoaded: boolean
@@ -111,6 +120,7 @@ export function emptyClientFilters(): ClientFilters {
     isActive: null,
     hasWorkspace: null,
     tag: null,
+    categoryId: null,
     archived: false,
   }
 }
@@ -124,6 +134,7 @@ export const ARCHIVED_FILTER_OPTIONS: SelectOption[] = [
 export const useClientsStore = defineStore('clients', {
   state: (): ClientsState => ({
     items: [],
+    categories: [],
     picker: [],
     pickerLoading: false,
     pickerLoaded: false,
@@ -158,6 +169,7 @@ export const useClientsStore = defineStore('clients', {
       if (f.isActive !== null) n += 1
       if (f.hasWorkspace !== null) n += 1
       if (f.tag) n += 1
+      if (f.categoryId) n += 1
       if (f.archived !== false) n += 1
       return n
     },
@@ -208,6 +220,7 @@ export const useClientsStore = defineStore('clients', {
           isActive: f.isActive ?? undefined,
           hasWorkspace: f.hasWorkspace ?? undefined,
           tag: f.tag ?? undefined,
+          categoryId: f.categoryId ?? undefined,
           archived: f.archived === 'all' ? 'all' : f.archived,
           page: targetPage,
           limit: this.limit,
@@ -228,6 +241,22 @@ export const useClientsStore = defineStore('clients', {
      * Carga la lista para los selectores. No toca `items` ni `filters`: abrir un
      * modal desde /cobros no debe reescribir la tabla de /clientes.
      */
+    async fetchCategories() {
+      this.categories = await api.listCategories()
+      return this.categories
+    },
+
+    async createCategory(payload: { name: string; color?: string; icon?: string }) {
+      const created = await api.createCategory(payload)
+      await this.fetchCategories()
+      return created
+    },
+
+    async deleteCategory(id: string) {
+      await api.deleteCategory(id)
+      await this.fetchCategories()
+    },
+
     async fetchPicker(force = false) {
       if (this.pickerLoading) return
       if (this.pickerLoaded && !force) return

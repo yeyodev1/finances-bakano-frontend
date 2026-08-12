@@ -12,6 +12,7 @@ import {
   BaseSwitch,
   BaseTextarea,
 } from '@/components/base'
+import ClientCategoryPicker from './ClientCategoryPicker.vue'
 import ClientSplitsEditor from './ClientSplitsEditor.vue'
 import ClientTagsInput from './ClientTagsInput.vue'
 import ClientBackfillPanel from './ClientBackfillPanel.vue'
@@ -39,6 +40,7 @@ interface FormState {
   collectionDayLabel: string
   paymentMethod: PaymentMethod
   billingType: BillingType
+  categoryId: string | null
   splits: ClientSplit[]
   notes: string
   tags: string[]
@@ -61,6 +63,7 @@ function blank(): FormState {
     collectionDayLabel: '',
     paymentMethod: 'transferencia',
     billingType: 'monthly',
+    categoryId: null,
     splits: [],
     notes: '',
     tags: [],
@@ -108,6 +111,7 @@ watch(
       collectionDayLabel: client.collectionDayLabel || '',
       paymentMethod: client.paymentMethod,
       billingType: client.billingType,
+      categoryId: client.categoryId ?? null,
       splits: (client.splits || []).map((s) => ({ ...s })),
       notes: client.notes || '',
       tags: [...(client.tags || [])],
@@ -144,6 +148,7 @@ function payload(): Partial<Client> {
     collectionDayLabel: form.collectionDayLabel.trim() || undefined,
     paymentMethod: form.paymentMethod,
     billingType: form.billingType,
+    categoryId: form.categoryId,
     splits: form.splits.map((s) => ({ label: s.label, amount: Number(s.amount), day: s.day ?? null })),
     notes: form.notes.trim() || undefined,
     tags: form.tags,
@@ -227,6 +232,7 @@ function close() {
         <div class="grid">
           <BaseSelect v-model="form.paymentMethod" :options="PAYMENT_METHOD_OPTIONS" label="Método de pago" />
           <BaseSelect v-model="form.billingType" :options="BILLING_TYPE_OPTIONS" label="Tipo de facturación" />
+          <ClientCategoryPicker v-model="form.categoryId" />
         </div>
       </fieldset>
 

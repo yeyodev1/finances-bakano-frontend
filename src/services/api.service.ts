@@ -14,6 +14,7 @@ import type {
   ChurnReport,
   CollectedReport,
   Client,
+  ClientCategory,
   ClientStats,
   DashboardSummary,
   Invoice,
@@ -175,6 +176,26 @@ class ApiService extends APIBase {
       `clients/${id}/backfill`,
       payload,
     )
+    return data
+  }
+
+  // ── Categorías de cliente ────────────────────────────────────
+  async listCategories(includeInactive = false) {
+    const { data } = await this.get<Wrapped<ClientCategory>>(
+      `clients/categories${qs({ includeInactive: includeInactive || undefined })}`,
+    )
+    return data.items ?? []
+  }
+  async createCategory(payload: Partial<ClientCategory>) {
+    const { data } = await this.post<ClientCategory>('clients/categories', payload)
+    return data
+  }
+  async updateCategory(id: string, payload: Partial<ClientCategory>) {
+    const { data } = await this.put<ClientCategory>(`clients/categories/${id}`, payload)
+    return data
+  }
+  async deleteCategory(id: string) {
+    const { data } = await this.delete<{ message: string }>(`clients/categories/${id}`)
     return data
   }
 

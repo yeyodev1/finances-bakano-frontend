@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { BaseSearchInput, BaseSelect, BaseButton } from '@/components/base'
 import {
   ARCHIVED_FILTER_OPTIONS,
@@ -31,6 +31,29 @@ function onSearch(value: string) {
   store.filters.q = value
   emit('change')
 }
+
+/** Rubro del cliente. Las categorías se crean desde la app, no están fijas. */
+onMounted(() => {
+  if (!store.categories.length) store.fetchCategories().catch(() => undefined)
+})
+
+const categoryOptions = computed<SelectOption[]>(() => [
+  { value: 'all', label: 'Todas las categorías', icon: 'fa-solid fa-tags' },
+  ...store.categories.map((c) => ({
+    value: c._id,
+    label: c.name,
+    icon: c.icon || 'fa-solid fa-tag',
+    description: c.clientCount ? `${c.clientCount} cliente(s)` : undefined,
+  })),
+])
+
+const category = computed<string | number | null>({
+  get: () => store.filters.categoryId ?? 'all',
+  set: (value) => {
+    store.filters.categoryId = value === 'all' || value === null ? null : String(value)
+    emit('change')
+  },
+})
 
 const method = computed<string | number | null>({
   get: () => store.filters.paymentMethod ?? 'all',
@@ -159,6 +182,7 @@ function clearAll() {
       <div class="filters__selects">
         <BaseSelect v-model="method" :options="methodOptions" placeholder="Método de pago" />
         <BaseSelect v-model="billing" :options="billingOptions" placeholder="Facturación" />
+        <BaseSelect v-model="category" :options="categoryOptions" placeholder="Categoría" searchable />
         <BaseSelect v-model="status" :options="STATUS_OPTIONS" placeholder="Estado" />
         <BaseSelect v-model="workspace" :options="WORKSPACE_OPTIONS" placeholder="Espacio" />
         <BaseSelect

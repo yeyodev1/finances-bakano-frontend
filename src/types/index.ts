@@ -116,6 +116,17 @@ export interface ChurnReport {
   }>
 }
 
+export interface ClientCategory {
+  _id: string
+  name: string
+  slug: string
+  color?: string
+  icon?: string
+  description?: string
+  isActive: boolean
+  clientCount?: number
+}
+
 export interface Client {
   _id: string
   name: string
@@ -138,6 +149,9 @@ export interface Client {
   /** Usuario que persigue el cobro de este cliente. */
   ownerId?: string | null
   ownerName?: string | null
+  /** Rubro del cliente. Las categorías se crean desde la app. */
+  categoryId?: string | null
+  categoryName?: string | null
   workspaceLinkedAt?: string | null
   /** Imagen del espacio cacheada desde métricas. Úsala como avatar del cliente. */
   workspaceImageUrl?: string | null
