@@ -25,7 +25,7 @@ const emit = defineEmits<{
 const clients = useClientsStore()
 const invoices = useInvoicesStore()
 const toast = useToast()
-const { formatPeriod, formatMoney } = useFormat()
+const { formatPeriod } = useFormat()
 
 const form = reactive({
   clientId: '' as string,
@@ -44,26 +44,19 @@ function nextPeriod(): string {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
 }
 
-const activeClients = computed<Client[]>(() =>
-  clients.items.filter((c) => !c.isArchived && c.isActive),
-)
+// Ojo: se usa `clients.picker` (lista completa, sin filtros) y no `clients.items`,
+// que está paginado y arrastra los filtros de /clientes.
+const pickerClients = computed<Client[]>(() => clients.picker)
 
-const clientOptions = computed<SelectOption[]>(() =>
-  activeClients.value.map((c) => ({
-    value: c._id,
-    label: c.name,
-    description: formatMoney(c.amount),
-    icon: 'fa-solid fa-building',
-  })),
-)
+const clientOptions = computed<SelectOption[]>(() => clients.pickerOptions)
 
-const selectedClient = computed(() => activeClients.value.find((c) => c._id === form.clientId) ?? null)
+const selectedClient = computed(() => pickerClients.value.find((c) => c._id === form.clientId) ?? null)
 
 const clientModel = computed<string | number | null>({
   get: () => form.clientId || null,
   set: (value) => {
     form.clientId = value ? String(value) : ''
-    const client = activeClients.value.find((c) => c._id === form.clientId)
+    const client = pickerClients.value.find((c) => c._id === form.clientId)
     if (client) form.amount = Number(client.amount || 0)
   },
 })
@@ -79,10 +72,9 @@ const isValid = computed(
 )
 
 async function ensureClients() {
-  if (clients.items.length) return
   loadingClients.value = true
   try {
-    await clients.fetch(1)
+    await clients.fetchPicker()
   } catch (error) {
     toast.error('No se pudieron cargar los clientes', apiErrorMessage(error))
   } finally {

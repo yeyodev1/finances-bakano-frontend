@@ -1,16 +1,92 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { BaseButton, BaseMonthPicker, BaseSearchInput, BaseSelect } from '@/components/base'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { apiErrorMessage } from '@/stores/clients'
-import { INVOICE_STATUS_OPTIONS, useInvoicesStore } from '@/stores/invoices'
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_OPTIONS, useInvoicesStore } from '@/stores/invoices'
+import { useUsersStore } from '@/stores/users'
 import { useFormat } from '@/composables/useFormat'
-import type { InvoiceStatus, SelectOption } from '@/types'
+import type { Invoice, InvoiceStatus, SelectOption } from '@/types'
 
 const emit = defineEmits<{ refresh: []; advance: [] }>()
 
 const store = useInvoicesStore()
+const users = useUsersStore()
+const { formatDateShort, formatPeriod: fmtPeriod } = useFormat()
+
+onMounted(() => {
+  if (!users.items.length) users.fetch().catch(() => undefined)
+})
+
+/** Responsable de cobro: sale del campo `ownerId` del cliente. */
+const OWNER_ALL = 'all'
+const ownerOptions = computed<SelectOption[]>(() => [
+  { value: OWNER_ALL, label: 'Cualquier responsable', icon: 'fa-solid fa-users' },
+  ...users.items
+    .filter((u) => u.isActive)
+    .map((u) => ({ value: u._id, label: u.name, image: u.photoUrl || null })),
+])
+
+const owner = computed<string | number | null>({
+  get: () => store.filters.ownerId ?? OWNER_ALL,
+  set: (value) => {
+    store.filters.ownerId = value === OWNER_ALL || value === null ? null : String(value)
+    emit('refresh')
+  },
+})
+
+function csvCell(value: string | number): string {
+  const text = String(value ?? '')
+  return /[",;\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+/** Exporta lo que está en pantalla, con los filtros ya aplicados. */
+const exporting = ref(false)
+
+async function exportCsv() {
+  if (!store.items.length) {
+    toast.warning('Nada que exportar', 'No hay cobros con el filtro actual.')
+    return
+  }
+
+  exporting.value = true
+  let rows: Invoice[]
+  try {
+    // Todas las páginas, no solo la visible: si no, el CSV saldría incompleto.
+    rows = await store.fetchAllFiltered()
+  } catch (error) {
+    toast.error('No se pudo exportar', apiErrorMessage(error))
+    exporting.value = false
+    return
+  }
+
+  const header = ['Cliente', 'Periodo', 'Monto', 'Pagado', 'Saldo', 'Vence', 'Estado']
+  const lines = rows.map((inv) =>
+    [
+      csvCell(inv.clientName),
+      csvCell(fmtPeriod(inv.period)),
+      csvCell(Number(inv.amount).toFixed(2)),
+      csvCell(Number(inv.paidAmount || 0).toFixed(2)),
+      csvCell(Math.max(Number(inv.amount) - Number(inv.paidAmount || 0), 0).toFixed(2)),
+      csvCell(formatDateShort(inv.dueDate)),
+      csvCell(INVOICE_STATUS_LABELS[inv.status] || inv.status),
+    ].join(';'),
+  )
+  const blob = new Blob([`\ufeff${[header.join(';'), ...lines].join('\n')}`], {
+    type: 'text/csv;charset=utf-8;',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `cobros-${store.filters.period}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  toast.success('CSV generado', `${rows.length} cobros exportados.`)
+  exporting.value = false
+}
 const toast = useToast()
 const { confirm } = useConfirm()
 const { formatPeriod } = useFormat()
@@ -109,6 +185,9 @@ async function recalc() {
       </div>
 
       <div class="head__actions">
+        <BaseButton variant="ghost" icon="fa-solid fa-file-csv" :loading="exporting" @click="exportCsv">
+          Exportar CSV
+        </BaseButton>
         <BaseButton icon="fa-solid fa-wand-magic-sparkles" :loading="store.working" @click="generate">
           Generar cobros del mes
         </BaseButton>
@@ -125,6 +204,12 @@ async function recalc() {
       <BaseMonthPicker v-model="period" label="Período" />
       <BaseSelect v-model="status" :options="statusOptions" label="Estado" />
       <BaseSelect v-model="special" :options="SPECIAL_OPTIONS" label="Tipo de cobro" />
+      <BaseSelect
+        v-model="owner"
+        :options="ownerOptions"
+        label="Responsable de cobro"
+        searchable
+      />
       <BaseSearchInput
         :model-value="store.filters.q"
         class="head__search"
@@ -182,7 +267,7 @@ async function recalc() {
   }
 
   @include lg {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   BaseBadge,
   BaseButton,
@@ -21,7 +21,56 @@ import type { Client, Invoice } from '@/types'
 
 const props = defineProps<{ items: Invoice[]; loading: boolean }>()
 
+// ── Selección múltiple ───────────────────────────────────────────
+// Solo se pueden seleccionar los cobros abiertos: condonar o aplazar uno ya
+// pagado o anulado no significa nada y el backend lo rechazaría igual.
+const selectedIds = ref<string[]>([])
+
+function isSelectable(invoice: Invoice): boolean {
+  return ['pending', 'partial', 'overdue'].includes(invoice.status)
+}
+
+const selectableRows = computed(() => props.items.filter(isSelectable))
+
+const selectedRows = computed(() =>
+  props.items.filter((i) => selectedIds.value.includes(i._id)),
+)
+
+const allSelected = computed(
+  () => selectableRows.value.length > 0 && selectedIds.value.length === selectableRows.value.length,
+)
+
+const selectedTotal = computed(() =>
+  selectedRows.value.reduce((acc, i) => acc + balance(i), 0),
+)
+
+function toggleRow(id: string) {
+  const at = selectedIds.value.indexOf(id)
+  if (at >= 0) selectedIds.value.splice(at, 1)
+  else selectedIds.value.push(id)
+}
+
+function toggleAll() {
+  selectedIds.value = allSelected.value ? [] : selectableRows.value.map((i) => i._id)
+}
+
+function clearSelection() {
+  selectedIds.value = []
+}
+
+// Si cambian los filtros, la selección vieja ya no aplica.
+watch(
+  () => props.items,
+  () => {
+    const visible = new Set(props.items.map((i) => i._id))
+    selectedIds.value = selectedIds.value.filter((id) => visible.has(id))
+  },
+)
+
+defineExpose({ clearSelection })
+
 const emit = defineEmits<{
+  bulk: [action: 'waive' | 'cancel' | 'defer', invoices: Invoice[]]
   pay: [invoice: Invoice]
   waive: [invoice: Invoice]
   cancel: [invoice: Invoice]
@@ -33,6 +82,7 @@ const { isMobile } = useBreakpoint()
 const { formatMoney, formatDateShort, daysDiff } = useFormat()
 
 const columns = [
+  { key: 'select', label: '' },
   { key: 'clientName', label: 'Cliente' },
   { key: 'amount', label: 'Monto', align: 'right' },
   { key: 'dueDate', label: 'Vencimiento' },
@@ -42,6 +92,16 @@ const columns = [
 ]
 
 const rows = computed(() => props.items)
+
+/**
+ * El id del cliente para enlazar a su ficha. `clientId` llega como string suelto
+ * o como objeto expandido según el endpoint, así que hay que contemplar ambos.
+ */
+function clientIdOf(invoice: Invoice): string | null {
+  const raw = invoice.clientId as string | Client
+  if (!raw) return null
+  return typeof raw === 'string' ? raw : (raw._id ?? null)
+}
 
 /** La imagen del espacio llega poblada cuando el backend expande el cliente. */
 function clientImage(invoice: Invoice): string | null {
@@ -70,6 +130,25 @@ function previousDueLabel(invoice: Invoice): string {
 
 <template>
   <div class="collections-table">
+    <Transition name="fade-slide">
+      <div v-if="selectedIds.length" class="bulk">
+        <span class="bulk__count">
+          <i class="fa-solid fa-check-double" aria-hidden="true" />
+          {{ selectedIds.length }} seleccionado(s) · {{ formatMoney(selectedTotal) }} de saldo
+        </span>
+        <div class="bulk__actions">
+          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-calendar-plus"
+            @click="emit('bulk', 'defer', selectedRows)">Aplazar</BaseButton>
+          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-hand-holding-heart"
+            @click="emit('bulk', 'waive', selectedRows)">Condonar</BaseButton>
+          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-ban"
+            @click="emit('bulk', 'cancel', selectedRows)">Anular</BaseButton>
+          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-xmark"
+            @click="clearSelection">Quitar selección</BaseButton>
+        </div>
+      </div>
+    </Transition>
+
     <div v-if="loading" class="collections-table__skeleton">
       <BaseSkeleton v-for="n in 6" :key="n" height="64px" />
     </div>
@@ -84,13 +163,29 @@ function previousDueLabel(invoice: Invoice): string {
     <TransitionGroup v-else-if="isMobile" name="list" tag="div" class="cards">
       <article v-for="invoice in rows" :key="invoice._id" class="card">
         <header class="card__head">
-          <div class="card__id">
+          <component
+            :is="clientIdOf(invoice) ? 'RouterLink' : 'div'"
+            v-bind="
+              clientIdOf(invoice)
+                ? { to: { name: 'ClientDetail', params: { id: clientIdOf(invoice) } } }
+                : {}
+            "
+            class="card__id"
+            :class="{ 'card__id--link': clientIdOf(invoice) }"
+          >
             <BaseWorkspaceAvatar :src="clientImage(invoice)" :name="invoice.clientName" size="sm" />
             <div>
-              <h3>{{ invoice.clientName }}</h3>
+              <h3>
+                {{ invoice.clientName }}
+                <i
+                  v-if="clientIdOf(invoice)"
+                  class="client__go fa-solid fa-arrow-up-right-from-square"
+                  aria-hidden="true"
+                />
+              </h3>
               <p v-if="invoice.splitLabel" class="card__split">{{ invoice.splitLabel }}</p>
             </div>
-          </div>
+          </component>
           <div class="card__badges">
             <BaseBadge :variant="INVOICE_STATUS_TONE[invoice.status]" :icon="INVOICE_STATUS_ICONS[invoice.status]">
               {{ INVOICE_STATUS_LABELS[invoice.status] }}
@@ -146,21 +241,61 @@ function previousDueLabel(invoice: Invoice): string {
       </article>
     </TransitionGroup>
 
+
     <BaseTable v-else :columns="columns" :rows="rows" row-key="_id">
+      <template #head-select>
+        <input
+          class="check"
+          type="checkbox"
+          :checked="allSelected"
+          :indeterminate="selectedIds.length > 0 && !allSelected"
+          aria-label="Seleccionar todos los cobros abiertos"
+          :disabled="!selectableRows.length"
+          @change="toggleAll"
+        />
+      </template>
+
+      <template #cell-select="{ row }">
+        <input
+          v-if="isSelectable(row as Invoice)"
+          class="check"
+          type="checkbox"
+          :checked="selectedIds.includes((row as Invoice)._id)"
+          :aria-label="`Seleccionar el cobro de ${(row as Invoice).clientName}`"
+          @change="toggleRow((row as Invoice)._id)"
+        />
+      </template>
+
       <template #cell-clientName="{ row }">
-        <div class="client-cell">
+        <component
+          :is="clientIdOf(row as Invoice) ? 'RouterLink' : 'div'"
+          v-bind="
+            clientIdOf(row as Invoice)
+              ? { to: { name: 'ClientDetail', params: { id: clientIdOf(row as Invoice) } } }
+              : {}
+          "
+          class="client-cell"
+          :class="{ 'client-cell--link': clientIdOf(row as Invoice) }"
+        >
           <BaseWorkspaceAvatar
             :src="clientImage(row as Invoice)"
             :name="(row as Invoice).clientName"
             size="sm"
           />
           <div class="client-cell__id">
-            <span class="client">{{ (row as Invoice).clientName }}</span>
+            <span class="client">
+              {{ (row as Invoice).clientName }}
+              <i
+                v-if="clientIdOf(row as Invoice)"
+                class="client__go fa-solid fa-arrow-up-right-from-square"
+                aria-hidden="true"
+              />
+            </span>
             <span v-if="(row as Invoice).splitLabel" class="client__split">
               {{ (row as Invoice).splitLabel }}
             </span>
           </div>
-        </div>
+        </component>
       </template>
 
       <template #cell-amount="{ row }">
@@ -244,6 +379,67 @@ function previousDueLabel(invoice: Invoice): string {
 </template>
 
 <style scoped lang="scss">
+// El nombre del cliente lleva a su ficha. Se usa RouterLink (no un @click) para
+// que funcionen ctrl+click, abrir en pestaña nueva y la navegación por teclado.
+.client-cell--link,
+.card__id--link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: $radius-xs;
+  transition: color $transition-fast;
+
+  &:hover {
+    color: $primary;
+
+    .client__go { opacity: 1; }
+  }
+
+  &:focus-visible { @include focus-ring; }
+}
+
+.client__go {
+  margin-left: 6px;
+  font-size: 0.6em;
+  opacity: 0;
+  color: $primary;
+  transition: opacity $transition-fast;
+}
+
+// En táctil no hay hover: el indicador se deja siempre visible.
+@media (hover: none) {
+  .client__go { opacity: 0.6; }
+}
+
+.bulk {
+  @include flex(row, space-between, center, $sp-3);
+  flex-wrap: wrap;
+  padding: $sp-3 $sp-4;
+  border-radius: $radius-sm;
+  border: 1px solid $primary;
+  background: rgba($primary, 0.07);
+}
+
+.bulk__count {
+  @include flex(row, flex-start, center, $sp-2);
+  font-size: $fs-xs;
+  font-weight: 700;
+  color: $primary;
+}
+
+.bulk__actions {
+  @include flex(row, flex-start, center, $sp-1);
+  flex-wrap: wrap;
+}
+
+.check {
+  width: 16px;
+  height: 16px;
+  accent-color: $primary;
+  cursor: pointer;
+
+  &:disabled { cursor: not-allowed; opacity: 0.4; }
+}
+
 .collections-table__skeleton,
 .cards {
   @include flex-col($sp-2);
