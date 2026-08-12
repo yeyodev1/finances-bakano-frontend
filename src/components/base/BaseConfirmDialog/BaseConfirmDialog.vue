@@ -62,6 +62,7 @@ function accept() {
     :model-value="props.modelValue"
     size="sm"
     hide-close
+    layer="top"
     :persistent="props.loading"
     :scrollable="false"
     @update:model-value="!$event && cancel()"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
+import { useModalStack } from '@/composables/useModalStack'
 
 interface Props {
   modelValue: boolean
@@ -11,6 +12,11 @@ interface Props {
   persistent?: boolean
   hideClose?: boolean
   scrollable?: boolean
+  /**
+   * `top` lo eleva por encima de otros modales. Lo usa el diálogo de
+   * confirmación, que casi siempre se abre desde dentro de otro modal.
+   */
+  layer?: 'default' | 'top'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -21,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   persistent: false,
   hideClose: false,
   scrollable: true,
+  layer: 'default',
 })
 
 const emit = defineEmits<{
@@ -32,6 +39,10 @@ const emit = defineEmits<{
 const uid = useId()
 const panelRef = ref<HTMLElement | null>(null)
 const { lock, unlock } = useBodyScrollLock()
+
+// Solo el modal de encima responde a Escape; ver useModalStack.
+const modalStack = useModalStack()
+const isTopmost = () => modalStack.isTopmost(uid)
 
 function close() {
   if (props.persistent) {
@@ -50,6 +61,7 @@ function pulse() {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (!isTopmost()) return
   if (event.key === 'Escape') {
     event.stopPropagation()
     close()
@@ -80,6 +92,7 @@ watch(
   (open) => {
     if (open) {
       lock()
+      modalStack.push(uid)
       document.addEventListener('keydown', onKeydown, true)
       emit('open')
       nextTick(() => {
@@ -89,6 +102,7 @@ watch(
       })
     } else {
       unlock()
+      modalStack.remove(uid)
       document.removeEventListener('keydown', onKeydown, true)
     }
   },
@@ -96,6 +110,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  modalStack.remove(uid)
   document.removeEventListener('keydown', onKeydown, true)
   unlock()
 })
@@ -104,7 +119,12 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="props.modelValue" class="modal" @click.self="close">
+      <div
+        v-if="props.modelValue"
+        class="modal"
+        :class="{ 'modal--top': props.layer === 'top' }"
+        @click.self="close"
+      >
         <Transition name="modal-panel" appear>
           <div
             ref="panelRef"
@@ -166,6 +186,8 @@ onBeforeUnmount(() => {
     @include flex(row, center, center);
     padding: $sp-6;
   }
+
+  &--top { z-index: $z-confirm; }
 }
 
 .modal__panel {

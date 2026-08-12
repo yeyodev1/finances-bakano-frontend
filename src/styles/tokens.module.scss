@@ -67,4 +67,9 @@ $z-drawer: 900;
 $z-header: 800;
 $z-modal: 1000;
 $z-dropdown: 1050;
+// El confirm se monta una sola vez en App.vue, así que su nodo teletransportado
+// queda ANTES en el <body> que cualquier modal abierto después. A igual capa
+// pinta primero el del DOM, y el diálogo aparecía detrás del modal que lo
+// invocó. Necesita capa propia por encima, no solo empatar con $z-modal.
+$z-confirm: 1060;
 $z-toast: 1100;
