@@ -10,8 +10,6 @@ import type {
   BankTransaction,
   BreakdownItem,
   AgingBucket,
-  BillingSummary,
-  EInvoiceRow,
   CashflowForecast,
   ChurnReport,
   CollectedReport,
@@ -194,23 +192,6 @@ class ApiService extends APIBase {
       'invoices/generate',
       { period, force, ...(clientIds?.length ? { clientIds } : {}) },
     )
-    return data
-  }
-  // ── Facturación electrónica ──────────────────────────────────
-  async listEInvoices(params: Query = {}) {
-    const { data } = await this.get<PaginatedResult<EInvoiceRow>>(`invoices/einvoices${qs(params)}`)
-    return data
-  }
-  async billingSummary(period?: string) {
-    const { data } = await this.get<BillingSummary>(`invoices/billing-summary${qs({ period })}`)
-    return data
-  }
-  async issueEInvoice(id: string) {
-    const { data } = await this.post<Invoice>(`invoices/${id}/einvoice`, {})
-    return data
-  }
-  async refreshEInvoice(id: string) {
-    const { data } = await this.post<Invoice>(`invoices/${id}/einvoice/refresh`, {})
     return data
   }
   async getInvoice(id: string) {

@@ -456,50 +456,6 @@ export interface CashflowForecast {
   }
 }
 
-// ── Facturación electrónica ──────────────────────────────────────
-
-export interface EInvoiceData {
-  datilId?: string
-  estado?: string
-  secuencial?: string
-  numero?: string
-  claveAcceso?: string
-  urlPdf?: string
-  urlXml?: string
-  ambiente?: number
-  emitidaAt?: string | null
-  error?: string
-}
-
-export interface EInvoiceRow {
-  invoiceId: string
-  clientId: string
-  clientName: string
-  clientImage?: string | null
-  taxId?: string | null
-  period: string
-  amount: number
-  paidAmount: number
-  saldo: number
-  /** La factura ya tiene su dinero cobrado. */
-  conciliada: boolean
-  estadoCobro: InvoiceStatus
-  einvoice: EInvoiceData
-}
-
-export interface BillingSummary {
-  period: string | null
-  configurada: boolean
-  ambiente: number
-  faltaConfigurar: string[]
-  facturado: number
-  sinFacturar: number
-  facturadoSinCobrar: number
-  cobradoSinFacturar: number
-  pendienteAutorizacion: number
-  conError: number
-}
-
 // ── Ventas ───────────────────────────────────────────────────────
 // Acuerdo cerrado hoy que se cobra más adelante. Vive aparte de las facturas:
 // al cerrarse puede no existir todavía el cliente.

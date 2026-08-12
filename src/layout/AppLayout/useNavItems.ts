@@ -14,7 +14,6 @@ const ORDER = [
   'Collections',
   'Clients',
   'Payments',
-  'EInvoices',
   'Sales',
   'Bank',
   'Churn',
