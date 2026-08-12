@@ -7,7 +7,14 @@ import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
 import type { Payment } from '@/types'
 
 const props = defineProps<{ items: Payment[]; loading: boolean }>()
-const emit = defineEmits<{ remove: [payment: Payment] }>()
+const emit = defineEmits<{ remove: [payment: Payment]; preview: [payment: Payment] }>()
+
+/** En el listado `clientId` llega crudo; poblado solo en el detalle. */
+function clientRoute(payment: Payment): string {
+  const raw = payment.clientId
+  const id = typeof raw === 'string' ? raw : raw?._id
+  return id ? `/clientes/${id}` : ''
+}
 
 const { isMobile } = useBreakpoint()
 const { formatMoney, formatDateShort, formatPeriod } = useFormat()
@@ -41,7 +48,11 @@ const rows = computed(() => props.items)
     <TransitionGroup v-else-if="isMobile" name="list" tag="div" class="cards">
       <article v-for="payment in rows" :key="payment._id" class="card">
         <header class="card__head">
-          <h3>{{ payment.clientName }}</h3>
+          <RouterLink v-if="clientRoute(payment)" :to="clientRoute(payment)" class="client-link">
+            {{ payment.clientName }}
+            <i class="fa-solid fa-arrow-right" aria-hidden="true" />
+          </RouterLink>
+          <h3 v-else>{{ payment.clientName }}</h3>
           <span class="card__amount">{{ formatMoney(payment.amount) }}</span>
         </header>
 
@@ -56,9 +67,9 @@ const rows = computed(() => props.items)
         </ul>
 
         <footer class="card__foot">
-          <a v-if="payment.receiptUrl" :href="payment.receiptUrl" target="_blank" rel="noopener" class="link">
-            <i class="fa-solid fa-paperclip" aria-hidden="true" /> Ver comprobante
-          </a>
+          <button v-if="payment.receiptUrl" type="button" class="receipt" @click="emit('preview', payment)">
+            <i class="fa-solid fa-eye" aria-hidden="true" /> Ver comprobante
+          </button>
           <span v-else class="muted">Sin comprobante</span>
           <button type="button" class="danger" @click="emit('remove', payment)">
             <i class="fa-solid fa-trash" aria-hidden="true" /> Eliminar
@@ -69,7 +80,11 @@ const rows = computed(() => props.items)
 
     <BaseTable v-else :columns="columns" :rows="rows" row-key="_id">
       <template #cell-clientName="{ row }">
-        <span class="strong">{{ (row as Payment).clientName }}</span>
+        <RouterLink v-if="clientRoute(row as Payment)" :to="clientRoute(row as Payment)" class="client-link">
+          {{ (row as Payment).clientName }}
+          <i class="fa-solid fa-arrow-right" aria-hidden="true" />
+        </RouterLink>
+        <span v-else class="strong">{{ (row as Payment).clientName }}</span>
         <span v-if="(row as Payment).registeredByName" class="sub">
           Registró {{ (row as Payment).registeredByName }}
         </span>
@@ -90,16 +105,20 @@ const rows = computed(() => props.items)
       </template>
 
       <template #cell-receipt="{ row }">
-        <a
+        <!-- Previsualizar en sitio: abrir pestaña por cada pago hacía perder
+             el filtro y el scroll del listado. -->
+        <button
           v-if="(row as Payment).receiptUrl"
-          :href="(row as Payment).receiptUrl"
-          target="_blank"
-          rel="noopener"
-          class="link"
+          type="button"
+          class="receipt"
+          title="Previsualizar comprobante"
+          @click="emit('preview', row as Payment)"
         >
-          <i class="fa-solid fa-paperclip" aria-hidden="true" /> Abrir
-        </a>
-        <span v-else class="muted">—</span>
+          <i class="fa-solid fa-eye" aria-hidden="true" /> Ver
+        </button>
+        <span v-else class="muted" title="Este pago se registró sin respaldo">
+          <i class="fa-solid fa-circle-minus" aria-hidden="true" /> Sin comprobante
+        </span>
       </template>
 
       <template #cell-actions="{ row }">
@@ -173,16 +192,48 @@ const rows = computed(() => props.items)
   font-weight: 800;
 }
 
-.link {
+.client-link {
   @include flex(row, flex-start, center, $sp-2);
-  color: $primary;
-  font-weight: 600;
+  font-weight: 700;
+  color: $primary-dark;
   text-decoration: none;
-  transition: opacity $transition-base;
+
+  i {
+    font-size: $fs-xs;
+    color: $primary;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity $transition-base, transform $transition-base;
+  }
 
   &:hover {
-    opacity: 0.7;
+    color: $primary;
+
+    i { opacity: 1; transform: translateX(0); }
   }
+
+  &:focus-visible {
+    @include focus-ring;
+
+    i { opacity: 1; transform: translateX(0); }
+  }
+}
+
+.receipt {
+  @include flex(row, flex-start, center, $sp-2);
+  @include pressable;
+  padding: $sp-1 $sp-2;
+  border: none;
+  border-radius: $radius-xs;
+  background: transparent;
+  color: $primary;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background $transition-base;
+
+  &:hover { background: rgba($primary, 0.08); }
 }
 
 .muted {

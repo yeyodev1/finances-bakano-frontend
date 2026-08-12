@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { BaseBadge, BaseEmptyState, BaseSkeleton } from '@/components/base'
+import ReceiptPreviewModal from '@/components/payments/ReceiptPreviewModal.vue'
+import type { Payment } from '@/types'
 import { useFormat } from '@/composables/useFormat'
 import { useToast } from '@/composables/useToast'
 import { apiErrorMessage, PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
@@ -13,6 +15,15 @@ const toast = useToast()
 const { formatMoney, formatDateShort, formatPeriod } = useFormat()
 
 const total = computed(() => store.filteredAmount)
+
+// Mismo visor que en /pagos, para que el comprobante se vea igual en los dos lados.
+const previewOpen = ref(false)
+const previewed = ref<Payment | null>(null)
+
+function preview(payment: Payment) {
+  previewed.value = payment
+  previewOpen.value = true
+}
 
 onMounted(async () => {
   try {
@@ -60,9 +71,12 @@ onMounted(async () => {
             <span v-if="payment.reference" class="row__ref">
               <i class="fa-solid fa-hashtag" aria-hidden="true" />{{ payment.reference }}
             </span>
-            <a v-if="payment.receiptUrl" :href="payment.receiptUrl" target="_blank" rel="noopener" class="row__link">
-              <i class="fa-solid fa-paperclip" aria-hidden="true" /> Comprobante
-            </a>
+            <button v-if="payment.receiptUrl" type="button" class="row__link" @click="preview(payment)">
+              <i class="fa-solid fa-eye" aria-hidden="true" /> Comprobante
+            </button>
+            <span v-else class="row__none">
+              <i class="fa-solid fa-circle-minus" aria-hidden="true" /> Sin comprobante
+            </span>
             <span v-if="payment.registeredByName" class="row__by">
               <i class="fa-solid fa-user-pen" aria-hidden="true" />{{ payment.registeredByName }}
             </span>
@@ -70,6 +84,8 @@ onMounted(async () => {
         </article>
       </TransitionGroup>
     </template>
+
+    <ReceiptPreviewModal v-model="previewOpen" :payment="previewed" />
   </div>
 </template>
 
@@ -135,13 +151,23 @@ onMounted(async () => {
 }
 
 .row__link {
+  padding: 0;
+  border: none;
+  background: transparent;
   color: $primary;
+  font-family: inherit;
+  font-size: inherit;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
   transition: opacity $transition-base;
 
   &:hover {
     opacity: 0.75;
   }
+}
+
+.row__none {
+  color: $text-secondary;
 }
 </style>
