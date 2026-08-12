@@ -39,7 +39,30 @@ watch(
   },
 )
 
+async function reload() {
+  if (!props.client) return
+  try {
+    await Promise.all([
+      workspacesStore.fetchSuggestions(props.client._id),
+      workspacesStore.fetch(),
+    ])
+  } catch (error) {
+    toast.error('No se pudieron cargar los espacios', apiErrorMessage(error))
+  }
+}
+
 const suggestions = computed<WorkspaceSuggestion[]>(() => workspacesStore.suggestions)
+
+/**
+ * Sin espacios cargados el problema casi nunca es la búsqueda: es que el
+ * backend de métricas (:8100) no está levantado. Antes la lista salía vacía sin
+ * decir por qué y no había forma de saberlo desde la interfaz.
+ */
+const metricsDown = computed(
+  () => !workspacesStore.loading && workspacesStore.items.length === 0,
+)
+
+const searching = computed(() => search.value.trim().length > 0)
 
 const allResults = computed<WorkspaceSuggestion[]>(() => {
   const term = search.value.trim().toLowerCase()
@@ -173,6 +196,9 @@ async function unlink() {
           </button>
         </TransitionGroup>
 
+        <p v-else-if="metricsDown" class="ws__muted">
+          Sin conexión con métricas, no hay espacios que sugerir.
+        </p>
         <p v-else class="ws__muted">No encontramos coincidencias por nombre.</p>
       </section>
 
@@ -185,11 +211,32 @@ async function unlink() {
         </div>
 
         <BaseEmptyState
+          v-else-if="metricsDown"
+          icon="fa-solid fa-plug-circle-exclamation"
+          title="El servicio de métricas no responde"
+          message="Los espacios de trabajo viven en el backend de métricas. Levántalo en el puerto 8100 y vuelve a abrir esta ventana."
+        >
+          <template #action>
+            <BaseButton
+              icon="fa-solid fa-rotate"
+              :loading="workspacesStore.loading"
+              @click="reload"
+            >
+              Reintentar
+            </BaseButton>
+          </template>
+        </BaseEmptyState>
+
+        <BaseEmptyState
           v-else-if="!allResults.length"
-          icon="fa-solid fa-layer-group"
-          title="Sin espacios"
-          message="No hay espacios que coincidan con la búsqueda."
+          icon="fa-solid fa-magnifying-glass-minus"
+          title="Sin coincidencias"
+          :message="`Ningún espacio coincide con «${search}». Prueba con parte del nombre o el correo del admin.`"
         />
+
+        <p v-else-if="searching" class="ws__muted">
+          {{ allResults.length }} de {{ workspacesStore.items.length }} espacios coinciden.
+        </p>
 
         <TransitionGroup v-else name="list" tag="div" class="ws__list ws__list--scroll">
           <button
