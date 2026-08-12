@@ -69,7 +69,19 @@ const allResults = computed<WorkspaceSuggestion[]>(() => {
   return workspacesStore.items
     .filter((w) => {
       if (!term) return true
-      return w.name.toLowerCase().includes(term) || (w.adminEmail || '').toLowerCase().includes(term)
+      // Se buscan todas las señas del espacio, no solo su nombre: el usuario
+      // suele acordarse del dueño o de la página antes que del nombre exacto.
+      const haystack = [
+        w.name,
+        w.adminName,
+        w.adminEmail,
+        w.pageName,
+        w.instagramAccountName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return term.split(/\s+/).every((word) => haystack.includes(word))
     })
     .slice(0, 40)
     .map((w) => ({
@@ -204,7 +216,14 @@ async function unlink() {
 
       <section class="ws__block">
         <p class="ws__label"><i class="fa-solid fa-magnifying-glass" aria-hidden="true" /> Buscar en todos los espacios</p>
-        <BaseSearchInput v-model="search" placeholder="Nombre del espacio o email del admin" />
+        <BaseSearchInput
+          v-model="search"
+          placeholder="Nombre del espacio, del admin o su correo"
+        />
+
+        <p v-if="searching && allResults.length" class="ws__muted">
+          {{ allResults.length }} de {{ workspacesStore.items.length }} espacios coinciden.
+        </p>
 
         <div v-if="workspacesStore.loading" class="ws__list">
           <BaseSkeleton v-for="n in 3" :key="n" height="58px" />
@@ -234,10 +253,6 @@ async function unlink() {
           :message="`Ningún espacio coincide con «${search}». Prueba con parte del nombre o el correo del admin.`"
         />
 
-        <p v-else-if="searching" class="ws__muted">
-          {{ allResults.length }} de {{ workspacesStore.items.length }} espacios coinciden.
-        </p>
-
         <TransitionGroup v-else name="list" tag="div" class="ws__list ws__list--scroll">
           <button
             v-for="item in allResults"
@@ -256,7 +271,9 @@ async function unlink() {
             />
             <div class="ws-item__main">
               <span class="ws-item__name">{{ item.workspaceName }}</span>
-              <span v-if="item.adminEmail" class="ws-item__sub">{{ item.adminEmail }}</span>
+              <span v-if="item.adminName || item.adminEmail" class="ws-item__sub">
+                {{ [item.adminName, item.adminEmail].filter(Boolean).join(' · ') }}
+              </span>
             </div>
             <BaseBadge :variant="item.isActive ? 'success' : 'danger'">
               {{ item.isActive ? 'Activo' : 'Inactivo' }}
