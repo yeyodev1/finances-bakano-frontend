@@ -1,6 +1,13 @@
 import APIBase from './httpBase'
 import type {
   AppSettings,
+  BankAccount,
+  BankCard,
+  BankHealth,
+  BankOverview,
+  BankStatement,
+  BankSubscriptionsReport,
+  BankTransaction,
   BreakdownItem,
   AgingBucket,
   ChurnReport,
@@ -321,6 +328,54 @@ class ApiService extends APIBase {
   }
   async workspacesHealth() {
     const { data } = await this.get<{ ok: boolean }>('workspaces/health')
+    return data
+  }
+
+  // ── Banco (Mercury, solo lectura) ────────────────────────────
+  /** Foto general: cuentas, saldos, flujo mensual y últimos movimientos. */
+  async bankOverview(params: { days?: number; refresh?: boolean } = {}) {
+    const { data } = await this.get<BankOverview>(`mercury/overview${qs(params)}`)
+    return data
+  }
+  async bankAccounts(refresh = false) {
+    const { data } = await this.get<{
+      configured: boolean
+      total: number
+      currentBalance: number
+      availableBalance: number
+      items: BankAccount[]
+    }>(`mercury/accounts${qs({ refresh: refresh || undefined })}`)
+    return data
+  }
+  async bankTransactions(accountId: string, params: Query = {}) {
+    const { data } = await this.get<{
+      limit: number
+      offset: number
+      count: number
+      hasMore: boolean
+      items: BankTransaction[]
+    }>(`mercury/accounts/${accountId}/transactions${qs(params)}`)
+    return data
+  }
+  /** Suscripciones inferidas de los cargos recurrentes de todas las cuentas. */
+  async bankSubscriptions(params: { days?: number; refresh?: boolean } = {}) {
+    const { data } = await this.get<BankSubscriptionsReport>(`mercury/subscriptions${qs(params)}`)
+    return data
+  }
+  async bankCards(accountId: string, refresh = false) {
+    const { data } = await this.get<Wrapped<BankCard>>(
+      `mercury/accounts/${accountId}/cards${qs({ refresh: refresh || undefined })}`,
+    )
+    return data.items ?? []
+  }
+  async bankStatements(accountId: string, params: Query = {}) {
+    const { data } = await this.get<Wrapped<BankStatement>>(
+      `mercury/accounts/${accountId}/statements${qs(params)}`,
+    )
+    return data.items ?? []
+  }
+  async bankHealth() {
+    const { data } = await this.get<BankHealth>('mercury/health')
     return data
   }
 

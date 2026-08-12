@@ -49,6 +49,17 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Pagos', icon: 'fa-solid fa-receipt', requiresAuth: true },
       },
       {
+        path: 'banco',
+        name: 'Bank',
+        component: () => import('@/views/BankView'),
+        meta: {
+          title: 'Banco',
+          icon: 'fa-solid fa-building-columns',
+          requiresAuth: true,
+          roles: ['superadmin', 'admin'],
+        },
+      },
+      {
         path: 'espacios',
         name: 'Workspaces',
         component: () => import('@/views/WorkspacesView'),

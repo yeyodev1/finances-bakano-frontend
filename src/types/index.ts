@@ -392,3 +392,178 @@ export interface SelectOption {
   description?: string
   disabled?: boolean
 }
+
+// ── Banco (Mercury) ──────────────────────────────────────────────
+// La integración es de solo lectura: no existen mutaciones desde la app.
+
+export interface BankAccount {
+  id: string
+  name?: string
+  nickname?: string | null
+  legalBusinessName?: string | null
+  status?: string
+  type?: string
+  kind?: string
+  currentBalance?: number
+  availableBalance?: number
+  accountNumber?: string
+  routingNumber?: string
+  dashboardLink?: string
+  createdAt?: string
+}
+
+export type BankTransactionStatus = 'pending' | 'sent' | 'cancelled' | 'failed' | 'reversed' | 'blocked'
+
+export interface BankTransaction {
+  id: string
+  accountId?: string
+  amount?: number
+  status?: BankTransactionStatus | string
+  kind?: string
+  note?: string | null
+  externalMemo?: string | null
+  bankDescription?: string | null
+  counterpartyName?: string | null
+  counterpartyNickname?: string | null
+  cardId?: string | null
+  mercuryCategory?: string | null
+  createdAt?: string
+  postedAt?: string | null
+  estimatedDeliveryDate?: string | null
+  reasonForFailure?: string | null
+  dashboardLink?: string
+  /** Presente cuando el movimiento forma parte de una suscripción detectada. */
+  subscription?: {
+    key: string
+    name: string
+    cadenceLabel: string
+    status: BankSubscriptionStatus
+    monthlyCost: number
+  } | null
+}
+
+export interface BankCard {
+  cardId: string
+  nameOnCard?: string
+  lastFourDigits?: string
+  status?: string
+  physicalCardStatus?: string | null
+  network?: string
+  type?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface BankStatement {
+  id: string
+  startDate?: string
+  endDate?: string
+  endingBalance?: number
+  downloadUrl?: string
+  accountNumber?: string
+}
+
+export interface BankCashflowPoint {
+  /** `YYYY-MM` */
+  period: string
+  inflow: number
+  outflow: number
+  net: number
+  count: number
+}
+
+export interface BankCounterparty {
+  name: string
+  outflow: number
+  inflow: number
+  count: number
+  lastAt: string | null
+}
+
+export interface BankOverview {
+  configured: boolean
+  accounts: BankAccount[]
+  totals: {
+    accounts: number
+    currentBalance: number
+    availableBalance: number
+    pendingCount: number
+    analyzedTransactions: number
+  }
+  window: { start: string; end: string; days: number }
+  cashflow: BankCashflowPoint[]
+  topCounterparties: BankCounterparty[]
+  recentTransactions: BankTransaction[]
+}
+
+export type BankSubscriptionStatus = 'active' | 'failing' | 'due' | 'stale'
+
+export type BankCadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly' | 'irregular'
+
+export interface BankSubscriptionCharge {
+  id: string
+  date: string
+  amount: number
+  status: string
+  failed: boolean
+  /** Intentos que hizo el comercio para ese mismo cobro. */
+  attempts: number
+  accountId?: string
+  cardId?: string | null
+}
+
+export interface BankSubscription {
+  key: string
+  name: string
+  amount: number
+  cadence: BankCadence
+  cadenceLabel: string
+  intervalDays: number
+  monthlyCost: number
+  yearlyCost: number
+  /** La cadencia se asumió por falta de historial. */
+  estimated: boolean
+  charges: number
+  failedCharges: number
+  failedAttempts: number
+  totalPaid: number
+  failedAmount: number
+  firstChargeAt: string | null
+  lastChargeAt: string | null
+  lastAttemptAt: string
+  lastAttemptFailed: boolean
+  nextChargeAt: string | null
+  daysSinceLast: number | null
+  status: BankSubscriptionStatus
+  accountIds: string[]
+  cardIds: string[]
+  recentCharges: BankSubscriptionCharge[]
+}
+
+export interface BankSubscriptionsReport {
+  configured: boolean
+  window: { start: string; end: string; days: number }
+  /** Rango realmente cubierto por los movimientos disponibles en Mercury. */
+  history: { from: string | null; to: string | null; days: number; transactions: number }
+  totals: {
+    subscriptions: number
+    active: number
+    failing: number
+    monthlyCost: number
+    yearlyCost: number
+    paidInWindow: number
+    failedAmount: number
+  }
+  items: BankSubscription[]
+  candidates: Array<{ name: string; charges: number; totalPaid: number; lastChargeAt: string }>
+}
+
+export interface BankHealth {
+  configured: boolean
+  reachable: boolean
+  message: string
+  errorCode?: string
+  /** IP saliente que Mercury rechazó, cuando `errorCode === 'ipNotWhitelisted'`. */
+  ip?: string
+  checkedAt: string
+}
