@@ -135,6 +135,9 @@ export interface Client {
   tags: string[]
   workspaceId?: string | null
   workspaceName?: string | null
+  /** Usuario que persigue el cobro de este cliente. */
+  ownerId?: string | null
+  ownerName?: string | null
   workspaceLinkedAt?: string | null
   /** Imagen del espacio cacheada desde métricas. Úsala como avatar del cliente. */
   workspaceImageUrl?: string | null
@@ -384,10 +387,226 @@ export interface ToastItem {
   duration: number
 }
 
+// ── Pronóstico de cobranza ───────────────────────────────────────
+// El dinero esperado sale de dos fuentes: facturas de clientes actuales y
+// cuotas de ventas nuevas. El pronóstico las mezcla en los mismos tramos.
+
+export interface CashflowSource {
+  count: number
+  amount: number
+}
+
+export interface CashflowWeek {
+  index: number
+  start: string
+  end: string
+  isCurrent: boolean
+  invoices: CashflowSource
+  sales: CashflowSource
+  total: number
+}
+
+export interface CashflowBucket {
+  label: string
+  minDays: number
+  maxDays: number | null
+  count: number
+  amount: number
+}
+
+/** Dinero que ya entró, separando venta nueva de cliente con más de un mes. */
+export interface RealizedWeek {
+  index: number
+  start: string
+  end: string
+  isCurrent: boolean
+  newBusiness: CashflowSource
+  recurring: CashflowSource
+  total: number
+}
+
+export interface CollectedReport {
+  weeks: RealizedWeek[]
+  thisWeek: RealizedWeek | null
+  vsPreviousWeek: number | null
+  totals: {
+    collected: number
+    newBusiness: number
+    recurring: number
+  }
+}
+
+export interface CashflowForecast {
+  generatedAt: string
+  weeks: CashflowWeek[]
+  overdue: {
+    total: number
+    count: number
+    invoices: CashflowSource
+    sales: CashflowSource
+    buckets: CashflowBucket[]
+  }
+  totals: {
+    upcoming: number
+    overdue: number
+    expected: number
+    thisWeek: number
+    peakWeekStart: string | null
+    peakWeekAmount: number
+  }
+}
+
+// ── Ventas ───────────────────────────────────────────────────────
+// Acuerdo cerrado hoy que se cobra más adelante. Vive aparte de las facturas:
+// al cerrarse puede no existir todavía el cliente.
+
+export const SALE_FREQUENCIES = ['unico', 'semanal', 'quincenal', 'mensual', 'trimestral'] as const
+export type SaleFrequency = (typeof SALE_FREQUENCIES)[number]
+
+export const SALE_FREQUENCY_LABELS: Record<SaleFrequency, string> = {
+  unico: 'Pago único',
+  semanal: 'Cada semana',
+  quincenal: 'Cada quince días',
+  mensual: 'Cada mes',
+  trimestral: 'Cada tres meses',
+}
+
+export const SALE_STATUSES = ['acordada', 'cobrando', 'cobrada', 'perdida'] as const
+export type SaleStatus = (typeof SALE_STATUSES)[number]
+
+export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
+  acordada: 'Acordada, sin cobrar',
+  cobrando: 'Cobro en curso',
+  cobrada: 'Cobrada',
+  perdida: 'Perdida',
+}
+
+export type SaleInstallmentStatus = 'pendiente' | 'vencida' | 'cobrada'
+
+export const SALE_ITEM_KINDS = ['recurrente', 'unico'] as const
+export type SaleItemKind = (typeof SALE_ITEM_KINDS)[number]
+
+export const SALE_ITEM_KIND_LABELS: Record<SaleItemKind, string> = {
+  recurrente: 'Mensualidad / recurrente',
+  unico: 'Pago único',
+}
+
+/** Un concepto vendido: qué es, qué incluye y a qué precio se cerró. */
+export interface SaleItem {
+  concept: string
+  description?: string
+  amount: number
+  kind: SaleItemKind
+}
+
+/** Datos de facturación del acuerdo, para quien cobre. */
+export interface SaleBilling {
+  needsInvoice: boolean
+  legalName?: string
+  taxId?: string
+  email?: string
+  address?: string
+  phone?: string
+  invoiceNumber?: string
+  issuedAt?: string | null
+  notes?: string
+}
+
+export const SALE_LOST_REASONS = [
+  'nunca_pago',
+  'se_arrepintio',
+  'no_contesta',
+  'se_fue_competencia',
+  'precio',
+  'problema_interno',
+  'otro',
+] as const
+export type SaleLostReason = (typeof SALE_LOST_REASONS)[number]
+
+export const SALE_LOST_REASON_LABELS: Record<SaleLostReason, string> = {
+  nunca_pago: 'Nunca pagó',
+  se_arrepintio: 'Se arrepintió',
+  no_contesta: 'Dejó de contestar',
+  se_fue_competencia: 'Se fue con la competencia',
+  precio: 'Precio',
+  problema_interno: 'Problema interno de Bakano',
+  otro: 'Otro',
+}
+
+export interface SaleInstallment {
+  index: number
+  dueDate: string
+  amount: number
+  status: SaleInstallmentStatus
+  paidAt?: string | null
+  paidAmount: number
+  originalDueDate?: string | null
+  notes?: string
+}
+
+export interface SaleHistoryEntry {
+  action: string
+  detail?: string
+  at: string
+  byName?: string
+  meta?: Record<string, unknown>
+}
+
+export interface Sale {
+  _id: string
+  businessName: string
+  clientId?: string | null
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  amount: number
+  items: SaleItem[]
+  billing: SaleBilling
+  currency: string
+  frequency: SaleFrequency
+  installmentsCount: number
+  firstChargeDate: string
+  installments: SaleInstallment[]
+  soldBy: string
+  soldByName?: string
+  ownerId: string
+  ownerName?: string
+  agreedAt: string
+  status: SaleStatus
+  lostReason?: SaleLostReason | null
+  lostNotes?: string
+  lostAt?: string | null
+  notes?: string
+  history: SaleHistoryEntry[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SaleSummary {
+  recurringMonthly: number
+  newSales: {
+    agreed: number
+    collected: number
+    pending: number
+    overdue: number
+    lost: number
+    recurringSold: number
+    oneOffSold: number
+    missingInvoice: number
+  }
+  expectedTotal: number
+  byOwner: Array<{ ownerName: string; pending: number; overdue: number; count: number }>
+}
+
 export interface SelectOption {
   value: string | number | null
   label: string
   icon?: string
+  /**
+   * Logo de la opción. Con `null` igual se pinta el avatar, resuelto a iniciales
+   * con color propio; omite la clave si la opción no lleva avatar.
+   */
+  image?: string | null
   color?: string
   description?: string
   disabled?: boolean

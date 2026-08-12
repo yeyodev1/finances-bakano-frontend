@@ -76,10 +76,21 @@ export interface ArchiveClientInput {
   reason: ArchiveReason
   notes?: string
   attachments?: File[]
+  /** Fecha real de la baja (YYYY-MM-DD). Si se omite, el backend usa hoy. */
+  archivedAt?: string
 }
 
 export interface ClientsState {
   items: Client[]
+  /**
+   * Lista completa y SIN filtros para alimentar los selectores de cliente.
+   * `items` está paginado y sujeto a los filtros de la vista /clientes: si un
+   * modal lo reutiliza, el cliente que no entró en la página (o que el filtro
+   * dejó fuera) desaparece del desplegable sin explicación.
+   */
+  picker: Client[]
+  pickerLoading: boolean
+  pickerLoaded: boolean
   current: Client | null
   stats: ClientStats
   total: number
@@ -113,6 +124,9 @@ export const ARCHIVED_FILTER_OPTIONS: SelectOption[] = [
 export const useClientsStore = defineStore('clients', {
   state: (): ClientsState => ({
     items: [],
+    picker: [],
+    pickerLoading: false,
+    pickerLoaded: false,
     current: null,
     stats: {
       totalClients: 0,
@@ -149,7 +163,35 @@ export const useClientsStore = defineStore('clients', {
     },
     archivedItems: (state): Client[] => state.items.filter((c) => c.isArchived),
     clientOptions: (state): SelectOption[] =>
-      state.items.map((c) => ({ value: c._id, label: c.name, description: c.workspaceName || undefined })),
+      state.picker.map((c) => ({ value: c._id, label: c.name, description: c.workspaceName || undefined })),
+
+    /**
+     * Opciones para cualquier selector de cliente: lista completa, con logo del
+     * espacio y los inactivos marcados en vez de escondidos — ocultarlos hacía
+     * que un cliente existente pareciera no existir.
+     */
+    pickerOptions(state): SelectOption[] {
+      return [...state.picker]
+        .sort((a, b) => {
+          if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
+          return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+        })
+        .map((c) => ({
+          value: c._id,
+          label: c.name,
+          // `null` a propósito: sin logo se pinta el avatar de iniciales.
+          image: c.workspaceImageUrl || null,
+          description: [
+            new Intl.NumberFormat('es-EC', {
+              style: 'currency',
+              currency: c.currency || 'USD',
+            }).format(Number(c.amount || 0)),
+            c.isActive ? '' : 'Inactivo',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        }))
+    },
   },
 
   actions: {
@@ -179,6 +221,40 @@ export const useClientsStore = defineStore('clients', {
         throw error
       } finally {
         this.loading = false
+      }
+    },
+
+    /**
+     * Carga la lista para los selectores. No toca `items` ni `filters`: abrir un
+     * modal desde /cobros no debe reescribir la tabla de /clientes.
+     */
+    async fetchPicker(force = false) {
+      if (this.pickerLoading) return
+      if (this.pickerLoaded && !force) return
+      this.pickerLoading = true
+      try {
+        // El backend valida `limit` con max(200) (validators/common.schema.ts):
+        // pedir más devuelve 400. Se pagina hasta traer todos los clientes.
+        const PER_PAGE = 200
+        const MAX_PAGES = 10
+        const all: Client[] = []
+        let page = 1
+        let pages = 1
+
+        do {
+          const result = await api.listClients({ archived: false, page, limit: PER_PAGE })
+          all.push(...result.items)
+          pages = result.pages || 1
+          page += 1
+        } while (page <= pages && page <= MAX_PAGES)
+
+        this.picker = all
+        this.pickerLoaded = true
+      } catch (error) {
+        this.pickerLoaded = false
+        throw error
+      } finally {
+        this.pickerLoading = false
       }
     },
 
@@ -250,6 +326,24 @@ export const useClientsStore = defineStore('clients', {
       return updated
     },
 
+    /**
+     * Corrige fecha de entrada y/o de baja. El backend recalcula la antigüedad
+     * y el historial del ciclo de vida, que se derivan de esas fechas.
+     */
+    async updateLifecycleDates(id: string, payload: { startDate?: string; archivedAt?: string }) {
+      this.saving = true
+      try {
+        const client = await api.updateLifecycleDates(id, payload)
+        if (client?._id) {
+          this.replaceLocal(client)
+          if (this.current?._id === client._id) this.current = client
+        }
+        return client
+      } finally {
+        this.saving = false
+      }
+    },
+
     /** Baja del cliente: se archiva conservando todo el historial. Nunca borra. */
     async archive(id: string, input: ArchiveClientInput) {
       this.saving = true
@@ -257,6 +351,7 @@ export const useClientsStore = defineStore('clients', {
         const form = new FormData()
         form.append('reason', input.reason)
         if (input.notes?.trim()) form.append('notes', input.notes.trim())
+        if (input.archivedAt) form.append('archivedAt', input.archivedAt)
         ;(input.attachments ?? []).forEach((file) => form.append('attachments', file))
 
         const result = await api.archiveClient(id, form)

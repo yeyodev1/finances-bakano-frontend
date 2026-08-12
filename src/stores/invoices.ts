@@ -58,6 +58,7 @@ export interface InvoiceFilters {
   period: string
   status: InvoiceStatus | null
   clientId: string | null
+  ownerId: string | null
   q: string
   overdueOnly: boolean
   deferredOnly: boolean
@@ -129,7 +130,7 @@ export const useInvoicesStore = defineStore('invoices', {
     summary: emptySummary(currentPeriod()),
     total: 0,
     page: 1,
-    limit: 100,
+    limit: 50,
     pages: 1,
     loading: false,
     working: false,
@@ -138,6 +139,7 @@ export const useInvoicesStore = defineStore('invoices', {
       period: currentPeriod(),
       status: null,
       clientId: null,
+      ownerId: null,
       q: '',
       overdueOnly: false,
       deferredOnly: false,
@@ -173,6 +175,7 @@ export const useInvoicesStore = defineStore('invoices', {
           period: f.period || undefined,
           status: f.status ?? undefined,
           clientId: f.clientId ?? undefined,
+          ownerId: f.ownerId ?? undefined,
           q: f.q.trim() || undefined,
           overdueOnly: f.overdueOnly || undefined,
           deferredOnly: f.deferredOnly || undefined,
@@ -190,6 +193,39 @@ export const useInvoicesStore = defineStore('invoices', {
       } finally {
         this.loading = false
       }
+    },
+
+    /**
+     * Trae todas las páginas de lo filtrado. Lo usa la exportación: sacar solo
+     * la página visible daría un CSV incompleto sin avisar.
+     */
+    async fetchAllFiltered(): Promise<Invoice[]> {
+      const f = this.filters
+      const PER_PAGE = 200
+      const MAX_PAGES = 20
+      const all: Invoice[] = []
+      let page = 1
+      let pages = 1
+
+      do {
+        const result = await api.listInvoices({
+          period: f.period || undefined,
+          status: f.status ?? undefined,
+          clientId: f.clientId ?? undefined,
+          ownerId: f.ownerId ?? undefined,
+          q: f.q.trim() || undefined,
+          overdueOnly: f.overdueOnly || undefined,
+          deferredOnly: f.deferredOnly || undefined,
+          advanceOnly: f.advanceOnly || undefined,
+          page,
+          limit: PER_PAGE,
+        })
+        all.push(...result.items)
+        pages = result.pages || 1
+        page += 1
+      } while (page <= pages && page <= MAX_PAGES)
+
+      return this.applyLocalFilters(all)
     },
 
     async fetchByClient(clientId: string) {
@@ -223,10 +259,10 @@ export const useInvoicesStore = defineStore('invoices', {
       if (idx !== -1) this.items.splice(idx, 1, invoice)
     },
 
-    async generate(period: string, force = false) {
+    async generate(period: string, force = false, clientIds?: string[]) {
       this.working = true
       try {
-        return await api.generateInvoices(period, force)
+        return await api.generateInvoices(period, force, clientIds)
       } finally {
         this.working = false
       }

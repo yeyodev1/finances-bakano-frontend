@@ -10,7 +10,9 @@ import type {
   BankTransaction,
   BreakdownItem,
   AgingBucket,
+  CashflowForecast,
   ChurnReport,
+  CollectedReport,
   Client,
   ClientStats,
   DashboardSummary,
@@ -19,7 +21,13 @@ import type {
   NotificationSettings,
   PaginatedResult,
   Payment,
+  PaymentMethod,
   RevenuePoint,
+  Sale,
+  SaleBilling,
+  SaleItem,
+  SaleLostReason,
+  SaleSummary,
   User,
   Workspace,
   WorkspaceSuggestion,
@@ -120,6 +128,14 @@ class ApiService extends APIBase {
     const { data } = await this.post<Client>(`clients/${id}/reactivate`, { notes })
     return data
   }
+  /** Corrige fecha de entrada y/o de baja recalculando la antigüedad. */
+  async updateLifecycleDates(id: string, payload: { startDate?: string; archivedAt?: string }) {
+    const { data } = await this.patch<{ client: Client; message: string }>(
+      `clients/${id}/lifecycle-dates`,
+      payload,
+    )
+    return data.client
+  }
   async addClientAttachments(id: string, form: FormData) {
     const { data } = await this.post<Client>(`clients/${id}/attachments`, form)
     return data
@@ -171,10 +187,10 @@ class ApiService extends APIBase {
     const { data } = await this.get<InvoiceSummary>(`invoices/summary${qs({ period })}`)
     return data
   }
-  async generateInvoices(period: string, force = false) {
+  async generateInvoices(period: string, force = false, clientIds?: string[]) {
     const { data } = await this.post<{ created: number; skipped: number; period: string }>(
       'invoices/generate',
-      { period, force },
+      { period, force, ...(clientIds?.length ? { clientIds } : {}) },
     )
     return data
   }
@@ -219,8 +235,13 @@ class ApiService extends APIBase {
     splitIndex?: number
     notes?: string
   }) {
-    const { data } = await this.post<Invoice>('invoices/advance', payload)
-    return data
+    // El endpoint responde `{ invoice, created }`, no la factura pelada. Tiparlo
+    // como `Invoice` dejaba `_id`/`period`/`amount` en undefined río abajo.
+    const { data } = await this.post<{ invoice: Invoice; created: boolean }>(
+      'invoices/advance',
+      payload,
+    )
+    return data.invoice
   }
 
   // ── Pagos ────────────────────────────────────────────────────
@@ -230,6 +251,24 @@ class ApiService extends APIBase {
   }
   async registerPayment(form: FormData) {
     const { data } = await this.post<{ payment: Payment; invoice: Invoice }>('payments', form)
+    return data
+  }
+  /** Un pago único que se reparte entre los cobros abiertos del cliente. */
+  async settlePayment(payload: {
+    clientId: string
+    amount: number
+    paidAt?: string
+    method?: PaymentMethod
+    reference?: string
+    notes?: string
+    invoiceIds?: string[]
+  }) {
+    const { data } = await this.post<{
+      clientName: string
+      totalApplied: number
+      invoicesSettled: number
+      applied: Array<{ invoiceId: string; period: string; amount: number }>
+    }>('payments/settle', payload)
     return data
   }
   async deletePayment(id: string) {
@@ -272,6 +311,73 @@ class ApiService extends APIBase {
   }
   async churnReport() {
     const { data } = await this.get<ChurnReport>('dashboard/churn')
+    return data
+  }
+
+  // ── Ventas ───────────────────────────────────────────────────
+  async listSales(params: Query = {}) {
+    const { data } = await this.get<PaginatedResult<Sale>>(`sales${qs(params)}`)
+    return data
+  }
+  async saleSummary(params: Query = {}) {
+    const { data } = await this.get<SaleSummary>(`sales/summary${qs(params)}`)
+    return data
+  }
+  async getSale(id: string) {
+    const { data } = await this.get<Sale>(`sales/${id}`)
+    return data
+  }
+  async createSale(payload: Record<string, unknown>) {
+    const { data } = await this.post<Sale>('sales', payload)
+    return data
+  }
+  async paySaleInstallment(
+    id: string,
+    index: number,
+    payload: { amount?: number; paidAt?: string; notes?: string },
+  ) {
+    const { data } = await this.post<Sale>(`sales/${id}/installments/${index}/pay`, payload)
+    return data
+  }
+  async rescheduleSaleInstallment(
+    id: string,
+    index: number,
+    payload: { newDueDate: string; reason?: string },
+  ) {
+    const { data } = await this.patch<Sale>(
+      `sales/${id}/installments/${index}/reschedule`,
+      payload,
+    )
+    return data
+  }
+  async updateSaleItems(id: string, items: SaleItem[]) {
+    const { data } = await this.patch<Sale>(`sales/${id}/items`, { items })
+    return data
+  }
+  async updateSaleBilling(id: string, payload: Partial<SaleBilling>) {
+    const { data } = await this.patch<Sale>(`sales/${id}/billing`, payload)
+    return data
+  }
+  async changeSaleOwner(id: string, ownerId: string) {
+    const { data } = await this.patch<Sale>(`sales/${id}/owner`, { ownerId })
+    return data
+  }
+  async loseSale(id: string, payload: { reason: SaleLostReason; notes?: string; lostAt?: string }) {
+    const { data } = await this.post<Sale>(`sales/${id}/lose`, payload)
+    return data
+  }
+  async reopenSale(id: string) {
+    const { data } = await this.post<Sale>(`sales/${id}/reopen`, {})
+    return data
+  }
+  /** Pronóstico semanal: facturas + cuotas de ventas, y lo atrasado con antigüedad. */
+  async cashflow(weeks = 8) {
+    const { data } = await this.get<CashflowForecast>(`dashboard/cashflow${qs({ weeks })}`)
+    return data
+  }
+  /** Cobrado real por semana, separando venta nueva de cliente recurrente. */
+  async collected(weeks = 6) {
+    const { data } = await this.get<CollectedReport>(`dashboard/collected${qs({ weeks })}`)
     return data
   }
   async upcoming(days = 15) {
