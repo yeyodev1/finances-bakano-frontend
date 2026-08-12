@@ -1,3 +1,4 @@
+import { useAppVersion } from '@/composables/useAppVersion'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 const routes: Array<RouteRecordRaw> = [
@@ -116,6 +117,29 @@ router.beforeEach((to, _from, next) => {
   }
 
   next()
+})
+
+/**
+ * Un cliente con la pestaña vieja pide chunks que el despliegue nuevo ya borró,
+ * y la navegación muere con "Failed to fetch dynamically imported module" sin
+ * que el usuario entienda nada. Se marca la versión como caducada y se recarga
+ * en la ruta pedida: al volver, el bundle ya es el nuevo.
+ */
+router.onError((error, to) => {
+  const message = String((error as Error)?.message ?? '')
+  const isStaleChunk =
+    /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(message)
+  if (!isStaleChunk) return
+
+  const { flagStale } = useAppVersion()
+  flagStale()
+
+  // Solo se recarga una vez por destino: si el fallo fuera otro, un reintento
+  // en bucle dejaría la aplicación recargándose para siempre.
+  const key = `reloaded:${to.fullPath}`
+  if (sessionStorage.getItem(key)) return
+  sessionStorage.setItem(key, '1')
+  window.location.assign(to.fullPath)
 })
 
 export default router

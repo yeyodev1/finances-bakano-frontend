@@ -72,4 +72,6 @@ $z-dropdown: 1050;
 // pinta primero el del DOM, y el diálogo aparecía detrás del modal que lo
 // invocó. Necesita capa propia por encima, no solo empatar con $z-modal.
 $z-confirm: 1060;
+// Aviso de versión nueva: sobre los modales, pero por debajo de los toasts.
+$z-update: 1080;
 $z-toast: 1100;

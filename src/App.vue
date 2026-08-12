@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { BaseToast, BaseConfirmHost } from '@/components/base'
+import { BaseToast, BaseConfirmHost, BaseUpdateBanner } from '@/components/base'
 import { useUserStore } from '@/stores/user'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -23,6 +23,7 @@ onMounted(async () => {
 
     <BaseToast />
     <BaseConfirmHost />
+    <BaseUpdateBanner />
   </div>
 </template>
 
