@@ -60,8 +60,11 @@ $bp-lg: 1024px;
 $bp-xl: 1280px;
 
 // ── z-index ────────────────────────────────────────────────────
+// Los paneles flotantes (select, date picker, month picker) se teletransportan
+// a <body>, así que su capa es global: tiene que quedar POR ENCIMA de modales y
+// drawers o el desplegable se abre invisible detrás del modal que lo contiene.
 $z-drawer: 900;
 $z-header: 800;
-$z-dropdown: 950;
 $z-modal: 1000;
+$z-dropdown: 1050;
 $z-toast: 1100;

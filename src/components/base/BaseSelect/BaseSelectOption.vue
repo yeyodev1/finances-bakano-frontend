@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import BaseWorkspaceAvatar from '../BaseWorkspaceAvatar/BaseWorkspaceAvatar.vue'
 import type { SelectOption } from '@/types'
 
 interface Props {
@@ -19,6 +21,10 @@ const emit = defineEmits<{
   select: [option: SelectOption]
   hover: [index: number]
 }>()
+
+// `image: null` sigue siendo avatar: BaseWorkspaceAvatar resuelve el logo faltante
+// (o el 404 de métricas) a iniciales con color propio, así ninguna fila queda coja.
+const hasAvatar = computed(() => props.option.image !== undefined)
 </script>
 
 <template>
@@ -44,8 +50,16 @@ const emit = defineEmits<{
       <i class="fa-solid fa-check" />
     </span>
 
+    <BaseWorkspaceAvatar
+      v-if="hasAvatar"
+      class="opt__avatar"
+      :src="props.option.image"
+      :name="props.option.label"
+      size="xs"
+      rounded="square"
+    />
     <span
-      v-if="props.option.color"
+      v-else-if="props.option.color"
       class="opt__dot"
       :style="{ background: props.option.color }"
       aria-hidden="true"
@@ -136,6 +150,10 @@ const emit = defineEmits<{
   height: 10px;
   border-radius: $radius-full;
   box-shadow: 0 0 0 3px rgba($primary-dark, 0.05);
+}
+
+.opt__avatar {
+  box-shadow: 0 0 0 1px rgba($primary-dark, 0.06);
 }
 
 .opt__tick {

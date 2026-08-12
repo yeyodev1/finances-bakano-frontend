@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import BaseWorkspaceAvatar from '../BaseWorkspaceAvatar/BaseWorkspaceAvatar.vue'
 
 interface Props {
   id: string
   text: string
   placeholder?: boolean
   icon?: string
+  /** `null` sí pinta avatar (iniciales); `undefined` no pinta ninguno. */
+  image?: string | null
+  /** Etiqueta que alimenta las iniciales del avatar. */
+  avatarName?: string
   dotColor?: string
   count?: number
   showClear?: boolean
@@ -20,6 +25,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   placeholder: false,
   icon: '',
+  image: undefined,
+  avatarName: '',
   dotColor: '',
   count: 0,
   showClear: false,
@@ -59,7 +66,15 @@ defineExpose({ el, focus: () => el.value?.focus() })
     @click="emit('toggle')"
     @keydown="emit('keydown', $event)"
   >
-    <i v-if="props.icon" class="sel__icon" :class="props.icon" aria-hidden="true" />
+    <BaseWorkspaceAvatar
+      v-if="props.image !== undefined"
+      class="sel__avatar"
+      :src="props.image"
+      :name="props.avatarName || props.text"
+      size="xs"
+      rounded="square"
+    />
+    <i v-else-if="props.icon" class="sel__icon" :class="props.icon" aria-hidden="true" />
 
     <span v-if="props.dotColor" class="sel__dot" :style="{ background: props.dotColor }" aria-hidden="true" />
 
@@ -108,6 +123,10 @@ defineExpose({ el, focus: () => el.value?.focus() })
 }
 
 .sel__icon { flex: none; color: $text-secondary; font-size: $fs-sm; }
+
+.sel__avatar {
+  box-shadow: 0 0 0 1px rgba($primary-dark, 0.06);
+}
 
 .sel__dot {
   flex: none;

@@ -80,6 +80,16 @@ const filtered = computed(() => {
 })
 
 const hasValue = computed(() => selectedOptions.value.length > 0)
+
+/**
+ * `undefined` = la opción no lleva avatar. Ojo con normalizar a `null`: eso haría
+ * que TODO select pintara un avatar de iniciales, no solo los de cliente.
+ */
+const triggerImage = computed(() => {
+  if (props.multiple) return undefined
+  const option = selectedOptions.value[0]
+  return option && 'image' in option ? option.image ?? null : undefined
+})
 const showClear = computed(() => props.clearable && hasValue.value && !props.disabled)
 
 const displayText = computed(() => {
@@ -224,6 +234,8 @@ function onKeydown(event: KeyboardEvent) {
       :text="displayText"
       :placeholder="!hasValue"
       :icon="props.icon"
+      :image="triggerImage"
+      :avatar-name="!props.multiple ? selectedOptions[0]?.label ?? '' : ''"
       :dot-color="!props.multiple ? selectedOptions[0]?.color ?? '' : ''"
       :count="props.multiple ? selectedOptions.length : 0"
       :show-clear="showClear"
