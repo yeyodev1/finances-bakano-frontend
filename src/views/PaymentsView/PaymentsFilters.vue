@@ -11,12 +11,12 @@ const store = usePaymentsStore()
 const clientsStore = useClientsStore()
 
 onMounted(() => {
-  if (!clientsStore.items.length) clientsStore.fetch(1).catch(() => undefined)
+  clientsStore.fetchPicker().catch(() => undefined)
 })
 
 const clientOptions = computed<SelectOption[]>(() => [
   { value: 'all', label: 'Todos los clientes', icon: 'fa-solid fa-users' },
-  ...clientsStore.clientOptions,
+  ...clientsStore.pickerOptions,
 ])
 
 const methodOptions = computed<SelectOption[]>(() => [

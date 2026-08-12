@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { BaseStatCard } from '@/components/base'
+import { computed, onMounted, ref } from 'vue'
+import { BaseButton, BaseStatCard } from '@/components/base'
 import PaymentsFilters from './PaymentsFilters.vue'
 import PaymentsTable from './PaymentsTable.vue'
+import InvoicePickerModal from './InvoicePickerModal.vue'
+import PaymentModal from '@/views/CollectionsView/PaymentModal.vue'
+import ReceiptPreviewModal from '@/components/payments/ReceiptPreviewModal.vue'
+import type { Invoice } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFormat } from '@/composables/useFormat'
@@ -26,6 +30,32 @@ async function load() {
 }
 
 onMounted(load)
+
+// Registrar pago desde /pagos: primero se elige el cobro, después se reutiliza
+// el mismo PaymentModal que usa /cobros.
+const pickerOpen = ref(false)
+const payOpen = ref(false)
+const target = ref<Invoice | null>(null)
+
+function onPicked(invoice: Invoice) {
+  target.value = invoice
+  payOpen.value = true
+}
+
+async function onRegistered() {
+  // El toast de éxito ya lo emite PaymentModal.
+  target.value = null
+  await load()
+}
+
+// Previsualización del comprobante sin salir del listado.
+const previewOpen = ref(false)
+const previewed = ref<Payment | null>(null)
+
+function preview(payment: Payment) {
+  previewed.value = payment
+  previewOpen.value = true
+}
 
 async function remove(payment: Payment) {
   const ok = await confirm({
@@ -93,6 +123,14 @@ function exportCsv() {
         <h1><i class="fa-solid fa-receipt" aria-hidden="true" /> Pagos</h1>
         <p>Historial completo de pagos registrados</p>
       </div>
+
+      <BaseButton
+        variant="success"
+        icon="fa-solid fa-hand-holding-dollar"
+        @click="pickerOpen = true"
+      >
+        Registrar pago
+      </BaseButton>
     </header>
 
     <div class="payments__stats">
@@ -114,7 +152,16 @@ function exportCsv() {
 
     <PaymentsFilters @change="load" @export="exportCsv" />
 
-    <PaymentsTable :items="store.items" :loading="store.loading" @remove="remove" />
+    <PaymentsTable
+      :items="store.items"
+      :loading="store.loading"
+      @remove="remove"
+      @preview="preview"
+    />
+
+    <InvoicePickerModal v-model="pickerOpen" @picked="onPicked" @settled="load" />
+    <PaymentModal v-model="payOpen" :invoice="target" @registered="onRegistered" />
+    <ReceiptPreviewModal v-model="previewOpen" :payment="previewed" />
   </div>
 </template>
 
@@ -124,7 +171,15 @@ function exportCsv() {
   padding-bottom: $sp-10;
 }
 
+.payments__header {
+  @include flex(row, space-between, center, $sp-3);
+  flex-wrap: wrap;
+}
+
 .payments__title {
+  flex: 1 1 260px;
+  min-width: 0;
+
   h1 {
     @include flex(row, flex-start, center, $sp-3);
     font-size: $fs-xl;
