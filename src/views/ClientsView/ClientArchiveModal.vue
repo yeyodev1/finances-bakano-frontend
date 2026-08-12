@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import {
   BaseButton,
+  BaseDatePicker,
   BaseFileDropzone,
   BaseModal,
   BaseSelect,
@@ -13,7 +14,15 @@ import { apiErrorMessage, useClientsStore } from '@/stores/clients'
 import { ARCHIVE_REASON_OPTIONS, daysSince, lifetimeLabel } from '@/config/archiveReasons'
 import type { ArchiveReason, Client } from '@/types'
 
-const props = defineProps<{ modelValue: boolean; client: Client | null }>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    client: Client | null
+    /** Sin cliente fijo (p. ej. desde /bajas) se elige dentro del propio modal. */
+    selectable?: boolean
+  }>(),
+  { selectable: false },
+)
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   archived: [client: Client | null]
@@ -21,11 +30,32 @@ const emit = defineEmits<{
 
 const store = useClientsStore()
 const toast = useToast()
-const { formatMoney, formatDate } = useFormat()
+const { formatMoney, formatDate, toISODate } = useFormat()
 
 const reason = ref<ArchiveReason | null>(null)
 const notes = ref('')
 const files = ref<File[]>([])
+const archivedAt = ref('')
+const pickedId = ref('')
+
+/** El cliente fijo manda; si no hay, el elegido en el selector. */
+const target = computed<Client | null>(
+  () => props.client ?? store.picker.find((c) => c._id === pickedId.value) ?? null,
+)
+
+const pickedModel = computed<string | number | null>({
+  get: () => pickedId.value || null,
+  set: (value) => {
+    pickedId.value = value ? String(value) : ''
+  },
+})
+
+const activeOptions = computed(() =>
+  store.pickerOptions.filter((option) => {
+    const client = store.picker.find((c) => c._id === option.value)
+    return client && !client.isArchived
+  }),
+)
 
 watch(
   () => props.modelValue,
@@ -34,20 +64,27 @@ watch(
     reason.value = null
     notes.value = ''
     files.value = []
+    pickedId.value = ''
+    archivedAt.value = toISODate(new Date()) || ''
+    if (props.selectable) {
+      store.fetchPicker().catch((error) => {
+        toast.error('No se pudieron cargar los clientes', apiErrorMessage(error))
+      })
+    }
   },
 )
 
 const lifetimeDays = computed(() => {
-  const c = props.client
+  const c = target.value
   if (!c) return 0
   return Number(c.lifetimeDays ?? 0) || daysSince(c.startDate)
 })
 
 const lifetimeText = computed(() => lifetimeLabel(lifetimeDays.value))
 
-const lifetimeRevenue = computed(() => Number(props.client?.lifetimeRevenue ?? 0))
+const lifetimeRevenue = computed(() => Number(target.value?.lifetimeRevenue ?? 0))
 
-const canSubmit = computed(() => !!reason.value && !store.saving)
+const canSubmit = computed(() => !!reason.value && !!target.value && !store.saving)
 
 const reasonModel = computed<string | number | null>({
   get: () => reason.value,
@@ -65,7 +102,7 @@ function onRejected(message: string) {
 }
 
 async function submit() {
-  const client = props.client
+  const client = target.value
   if (!client || !reason.value) return
 
   try {
@@ -73,6 +110,7 @@ async function submit() {
       reason: reason.value,
       notes: notes.value,
       attachments: files.value,
+      archivedAt: archivedAt.value || undefined,
     })
 
     toast.success(
@@ -105,7 +143,19 @@ async function submit() {
     size="md"
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <div v-if="client" class="archive">
+    <div v-if="target || props.selectable" class="archive">
+      <BaseSelect
+        v-if="props.selectable && !props.client"
+        v-model="pickedModel"
+        :options="activeOptions"
+        label="Cliente que se da de baja"
+        placeholder="Busca y selecciona el cliente"
+        icon="fa-solid fa-user"
+        :empty-text="store.pickerLoading ? 'Cargando clientes…' : 'Sin clientes activos'"
+        searchable
+        required
+      />
+
       <section class="archive__notice">
         <i class="fa-solid fa-shield-halved" aria-hidden="true" />
         <div>
@@ -117,10 +167,10 @@ async function submit() {
         </div>
       </section>
 
-      <section class="archive__summary">
+      <section v-if="target" class="archive__summary">
         <header class="archive__summary-head">
-          <span class="archive__client">{{ client.name }}</span>
-          <span class="archive__since">Cliente desde {{ formatDate(client.startDate) }}</span>
+          <span class="archive__client">{{ target.name }}</span>
+          <span class="archive__since">Cliente desde {{ formatDate(target.startDate) }}</span>
         </header>
 
         <div class="archive__figures">
@@ -135,7 +185,7 @@ async function submit() {
           <div class="figure">
             <span class="figure__label">Deja de facturarse</span>
             <span class="figure__value figure__value--loss">
-              {{ formatMoney(client.amount) }} / mes
+              {{ formatMoney(target.amount) }} / mes
             </span>
           </div>
         </div>
@@ -149,6 +199,13 @@ async function submit() {
         icon="fa-solid fa-circle-question"
         searchable
         required
+      />
+
+      <BaseDatePicker
+        v-model="archivedAt"
+        label="Fecha de la baja"
+        hint="El día real en que terminó el servicio. Define la antigüedad y qué cobros futuros se anulan."
+        :min="target?.startDate ?? null"
       />
 
       <BaseTextarea

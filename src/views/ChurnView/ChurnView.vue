@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseEmptyState } from '@/components/base'
 import ChurnKpis from './ChurnKpis.vue'
 import ChurnReasonsPanel from './ChurnReasonsPanel.vue'
 import ChurnRecentList from './ChurnRecentList.vue'
+import ChurnDatesModal from './ChurnDatesModal.vue'
+import ClientArchiveModal from '@/views/ClientsView/ClientArchiveModal.vue'
 import { useChurnStore } from '@/stores/churn'
+import type { ChurnReport } from '@/types'
+
+type RecentRow = ChurnReport['recent'][number]
 
 const store = useChurnStore()
 const router = useRouter()
@@ -19,6 +24,22 @@ onMounted(() => {
 function goToArchived() {
   router.push({ name: 'Clients' })
 }
+
+// Registrar la baja sin salir de /bajas: el modal trae su propio selector de
+// cliente cuando no se le pasa uno fijo.
+const archiveOpen = ref(false)
+
+const datesOpen = ref(false)
+const datesTarget = ref<RecentRow | null>(null)
+
+function openDates(row: RecentRow) {
+  datesTarget.value = row
+  datesOpen.value = true
+}
+
+async function onChanged() {
+  await store.refresh()
+}
 </script>
 
 <template>
@@ -30,6 +51,9 @@ function goToArchived() {
       </div>
 
       <div class="churn__actions">
+        <BaseButton variant="danger" icon="fa-solid fa-user-slash" @click="archiveOpen = true">
+          Registrar baja
+        </BaseButton>
         <BaseButton variant="outline" icon="fa-solid fa-users" @click="goToArchived">
           Ver clientes
         </BaseButton>
@@ -57,8 +81,22 @@ function goToArchived() {
 
       <ChurnReasonsPanel :rows="store.report.byReason" :loading="store.loading" />
 
-      <ChurnRecentList :items="store.report.recent" :loading="store.loading" />
+      <ChurnRecentList
+        :items="store.report.recent"
+        :loading="store.loading"
+        @edit-dates="openDates"
+      />
     </template>
+
+    <ClientArchiveModal v-model="archiveOpen" :client="null" selectable @archived="onChanged" />
+
+    <ChurnDatesModal
+      v-if="datesTarget"
+      v-model="datesOpen"
+      :client-id="datesTarget._id"
+      :client-name="datesTarget.name"
+      @saved="onChanged"
+    />
   </div>
 </template>
 

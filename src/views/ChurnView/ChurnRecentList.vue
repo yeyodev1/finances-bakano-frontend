@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { BaseBadge, BaseEmptyState, BaseSkeleton } from '@/components/base'
+import { BaseBadge, BaseButton, BaseEmptyState, BaseSkeleton } from '@/components/base'
 import { useFormat } from '@/composables/useFormat'
 import { archiveReasonIcon, archiveReasonTone, lifetimeLabel } from '@/config/archiveReasons'
 import type { BadgeVariant } from '@/components/base'
@@ -13,6 +13,8 @@ const props = withDefaults(
   defineProps<{ items?: RecentRow[]; loading?: boolean }>(),
   { items: () => [], loading: false },
 )
+
+const emit = defineEmits<{ 'edit-dates': [row: RecentRow] }>()
 
 const router = useRouter()
 const { formatMoney, formatDateShort } = useFormat()
@@ -72,6 +74,15 @@ function open(row: RecentRow) {
           <span v-if="row.attachmentsCount" class="row__files">
             <i class="fa-solid fa-paperclip" aria-hidden="true" /> {{ row.attachmentsCount }}
           </span>
+          <BaseButton
+            size="sm"
+            variant="ghost"
+            icon="fa-solid fa-calendar-pen"
+            :aria-label="`Corregir fechas de ${row.name}`"
+            @click.stop="emit('edit-dates', row)"
+          >
+            Fechas
+          </BaseButton>
           <i class="fa-solid fa-chevron-right row__chevron" aria-hidden="true" />
         </div>
       </li>
