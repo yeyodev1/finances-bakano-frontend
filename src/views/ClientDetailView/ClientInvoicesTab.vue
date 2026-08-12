@@ -41,6 +41,31 @@ async function load() {
 
 onMounted(load)
 
+const now = new Date()
+const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+/**
+ * Genera el cobro del mes en curso solo para este cliente. Usa el mismo motor
+ * que el cron (respeta startDate, billingStartPeriod y cobros divididos), así
+ * que el resultado es idéntico al que habría salido en la corrida mensual.
+ */
+async function generateThisMonth() {
+  try {
+    const result = await store.generate(currentPeriod, false, [props.clientId])
+    if (result.created > 0) {
+      toast.success('Cobro generado', `Ya puedes registrarle el pago a este cliente.`)
+    } else {
+      toast.warning(
+        'No se generó ningún cobro',
+        'Revisa que el cliente esté activo, con monto mayor a cero y que su fecha de inicio caiga dentro del período.',
+      )
+    }
+    await load()
+  } catch (error) {
+    toast.error('No se pudo generar el cobro', apiErrorMessage(error))
+  }
+}
+
 function overdueDays(invoice: Invoice): number {
   const diff = daysDiff(invoice.dueDate)
   return diff !== null && diff < 0 ? Math.abs(diff) : 0
@@ -48,6 +73,14 @@ function overdueDays(invoice: Invoice): number {
 
 function isOpen(invoice: Invoice): boolean {
   return ['pending', 'partial', 'overdue'].includes(invoice.status)
+}
+
+/**
+ * Un cobro saldado no "vence": mostrar igual la fecha de vencimiento hacía leer
+ * como deuda algo ya cobrado. Cerrado se informa cuándo se pagó.
+ */
+function isSettled(invoice: Invoice): boolean {
+  return invoice.status === 'paid'
 }
 
 function previousDueLabel(invoice: Invoice): string {
@@ -112,8 +145,18 @@ async function applyReason(reason: string) {
       v-else-if="!store.items.length"
       icon="fa-solid fa-file-invoice-dollar"
       title="Sin cobros"
-      message="Este cliente todavía no tiene cobros generados."
-    />
+      :message="`Este cliente se dio de alta después de que se generaran los cobros de ${formatPeriod(currentPeriod)}, así que todavía no tiene ninguno. Genéralo para poder registrarle pagos y que quede su histórico.`"
+    >
+      <template #action>
+        <BaseButton
+          icon="fa-solid fa-wand-magic-sparkles"
+          :loading="store.working"
+          @click="generateThisMonth"
+        >
+          Generar cobro de {{ formatPeriod(currentPeriod) }}
+        </BaseButton>
+      </template>
+    </BaseEmptyState>
 
     <TransitionGroup v-else name="list" tag="div" class="rows">
       <article v-for="invoice in store.items" :key="invoice._id" class="row">
@@ -122,10 +165,15 @@ async function applyReason(reason: string) {
             {{ formatPeriod(invoice.period) }}
             <span v-if="invoice.splitLabel" class="row__split">· {{ invoice.splitLabel }}</span>
           </p>
-          <p class="row__due">
+          <p v-if="isSettled(invoice)" class="row__due row__due--paid">
+            <i class="fa-solid fa-circle-check" aria-hidden="true" />
+            Pagado {{ invoice.paidAt ? formatDateShort(invoice.paidAt) : '' }}
+            <span class="row__prev">· vencía {{ formatDateShort(invoice.dueDate) }}</span>
+          </p>
+          <p v-else class="row__due">
             <i class="fa-solid fa-calendar-check" aria-hidden="true" />
             Vence {{ formatDateShort(invoice.dueDate) }}
-            <span v-if="overdueDays(invoice) && isOpen(invoice)" class="row__late">
+            <span v-if="overdueDays(invoice)" class="row__late">
               · {{ overdueDays(invoice) }} días de mora
             </span>
             <span v-if="previousDueLabel(invoice)" class="row__prev">· {{ previousDueLabel(invoice) }}</span>
@@ -221,6 +269,9 @@ async function applyReason(reason: string) {
   font-size: $fs-xs;
   color: $text-secondary;
   margin-top: $sp-1;
+
+  // El color no es la única señal: el icono cambia a check-circle.
+  &--paid i { color: $alert-success; }
 }
 
 .row__late {
