@@ -119,6 +119,13 @@ router.beforeEach((to, _from, next) => {
   next()
 })
 
+// Sonido al llegar a otra pantalla. `afterEach` y no `beforeEach`: solo suena si
+// la navegación de verdad ocurrió, no cuando un guard la redirige.
+router.afterEach((to, from) => {
+  if (!from.name || to.fullPath === from.fullPath) return
+  void import('@/composables/useSound').then(({ useSound }) => useSound().cue('navegar'))
+})
+
 /**
  * Un cliente con la pestaña vieja pide chunks que el despliegue nuevo ya borró,
  * y la navegación muere con "Failed to fetch dynamically imported module" sin

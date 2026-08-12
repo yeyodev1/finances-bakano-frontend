@@ -3,12 +3,14 @@ import { ref } from 'vue'
 import { BaseTabs } from '@/components/base'
 import NotificationsTab from './NotificationsTab.vue'
 import BrandTab from './BrandTab.vue'
+import SoundTab from './SoundTab.vue'
 
 const tab = ref('notifications')
 
 const tabs = [
   { value: 'notifications', label: 'Notificaciones', icon: 'fa-solid fa-bell' },
   { value: 'brand', label: 'Marca', icon: 'fa-solid fa-palette' },
+  { value: 'sound', label: 'Sonidos', icon: 'fa-solid fa-volume-high' },
 ]
 </script>
 
@@ -23,6 +25,7 @@ const tabs = [
 
     <Transition name="fade-slide" mode="out-in">
       <NotificationsTab v-if="tab === 'notifications'" key="notifications" />
+      <SoundTab v-else-if="tab === 'sound'" key="sound" />
       <BrandTab v-else key="brand" />
     </Transition>
   </div>

@@ -3,11 +3,17 @@ import { onMounted } from 'vue'
 import { BaseToast, BaseConfirmHost, BaseUpdateBanner } from '@/components/base'
 import { useUserStore } from '@/stores/user'
 import { useSettingsStore } from '@/stores/settings'
+import { useSound } from '@/composables/useSound'
 
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
 
+const sound = useSound()
+
 onMounted(async () => {
+  // Aplica la preferencia guardada; sin esto la librería arranca por defecto.
+  sound.start()
+
   await userStore.bootstrap()
   if (userStore.isAuthenticated) void settingsStore.load()
 })

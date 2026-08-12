@@ -35,7 +35,23 @@ function clear(): void {
   items.splice(0, items.length)
 }
 
+/**
+ * Sonido por tipo de aviso. Se engancha aquí y no en cada vista porque todo
+ * éxito y todo error del sistema pasa por el toast: un solo punto en vez de
+ * cincuenta llamadas repartidas que alguien olvidaría al añadir una pantalla.
+ */
+const CUE_BY_TYPE: Record<ToastType, 'exito' | 'error' | 'aviso'> = {
+  success: 'exito',
+  error: 'error',
+  warning: 'aviso',
+  info: 'aviso',
+}
+
 function push(type: ToastType, title: string, message?: string, duration?: number): string {
+  // Import diferido: useToast se usa en sitios sin componente montado y no debe
+  // arrastrar el audio si el sonido está apagado.
+  void import('./useSound').then(({ useSound }) => useSound().cue(CUE_BY_TYPE[type] ?? 'aviso'))
+
   const id = nextId()
   const ms = duration ?? DEFAULT_DURATION[type]
   items.push({ id, type, title, message, duration: ms })
