@@ -46,10 +46,12 @@ const isSelected = (option: SelectOption) => props.selectedValues.includes(optio
 
 const panelStyle = computed(() => {
   if (props.mobile) return undefined
-  const { top, left, width, placement } = props.position
+  const { top, left, width, placement, maxHeight } = props.position
   return {
     top: `${top}px`,
     left: `${left}px`,
+    // Recortado al hueco real: si no cabe entero, scrollea en vez de salirse.
+    maxHeight: `${maxHeight}px`,
     width: `${width}px`,
     transform: placement === 'top' ? 'translateY(-100%)' : undefined,
   }

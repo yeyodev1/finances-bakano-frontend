@@ -98,10 +98,12 @@ function shift(step: number) {
 
 const panelStyle = computed(() => {
   if (props.mobile) return undefined
-  const { top, left, placement } = props.position
+  const { top, left, placement, maxHeight } = props.position
   return {
     top: `${top}px`,
     left: `${left}px`,
+    // Recortado al hueco real: si no cabe entero, scrollea en vez de salirse.
+    maxHeight: `${maxHeight}px`,
     transform: placement === 'top' ? 'translateY(-100%)' : undefined,
   }
 })
@@ -196,6 +198,8 @@ const panelStyle = computed(() => {
 
 <style scoped lang="scss">
 .dpp {
+  overflow-y: auto;
+  overscroll-behavior: contain;
   position: fixed;
   z-index: $z-dropdown;
   @include flex-col;

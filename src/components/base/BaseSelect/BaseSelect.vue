@@ -59,7 +59,9 @@ const search = ref('')
 const activeIndex = ref(-1)
 
 const { isMobile } = useBreakpoint()
-const { position, update, start, stop } = useFloatingPanel(triggerRef, { estimatedHeight: 320 })
+const { position, panelRef: floatingEl, update, start, stop } = useFloatingPanel(triggerRef, {
+  estimatedHeight: 320,
+})
 
 const selectedValues = computed<SelectValue[]>(() => {
   if (props.multiple) return Array.isArray(props.modelValue) ? props.modelValue : []
@@ -112,7 +114,10 @@ function openPanel() {
   search.value = ''
   activeIndex.value = filtered.value.findIndex((o) => selectedValues.value.includes(o.value))
   start()
-  nextTick(update)
+  nextTick(() => {
+    floatingEl.value = panelEl()
+    update()
+  })
   emit('open')
 }
 

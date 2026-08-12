@@ -47,7 +47,7 @@ const panelRef = ref<{ el?: HTMLElement | null } | null>(null)
 const panelEl = () => panelRef.value?.el ?? null
 const open = ref(false)
 
-const { position, update, start, stop } = useFloatingPanel(triggerRef, {
+const { position, panelRef: floatingEl, update, start, stop } = useFloatingPanel(triggerRef, {
   estimatedHeight: 380,
   matchWidth: false,
   minWidth: 320,
@@ -89,7 +89,12 @@ function openPanel() {
   open.value = true
   syncView()
   start()
-  nextTick(update)
+  nextTick(() => {
+    // Medir el panel ya renderizado: la estimación puede quedarse corta y era
+    // lo que hacía que se saliera de la pantalla al abrir hacia arriba.
+    floatingEl.value = panelEl()
+    update()
+  })
 }
 
 function closePanel() {

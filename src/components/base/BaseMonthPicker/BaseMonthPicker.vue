@@ -36,7 +36,7 @@ const triggerRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 const open = ref(false)
 
-const { position, update, start, stop } = useFloatingPanel(triggerRef, {
+const { position, panelRef: floatingEl, update, start, stop } = useFloatingPanel(triggerRef, {
   estimatedHeight: 300,
   matchWidth: false,
   minWidth: 280,
@@ -84,7 +84,11 @@ function openPanel() {
   open.value = true
   viewYear.value = parts.value.year
   start()
-  nextTick(update)
+  nextTick(() => {
+    // Medir el panel real en vez de fiarse de la estimación.
+    floatingEl.value = panelRef.value
+    update()
+  })
 }
 
 function closePanel() {
@@ -111,10 +115,13 @@ function onKeydown(event: KeyboardEvent) {
 
 const panelStyle = computed(() => {
   if (isMobile.value) return undefined
-  const { top, left, placement } = position
+  const { top, left, placement, maxHeight } = position
   return {
     top: `${top}px`,
     left: `${left}px`,
+    // Recortado al hueco real: si no cabe entero, scrollea en vez de salirse.
+    maxHeight: `${maxHeight}px`,
+    overflowY: 'auto' as const,
     transform: placement === 'top' ? 'translateY(-100%)' : undefined,
   }
 })
