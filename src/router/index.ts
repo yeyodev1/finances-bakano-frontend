@@ -43,6 +43,12 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Bajas', icon: 'fa-solid fa-user-slash', requiresAuth: true },
       },
       {
+        path: 'ventas',
+        name: 'Sales',
+        component: () => import('@/views/SalesView'),
+        meta: { title: 'Ventas', icon: 'fa-solid fa-handshake', requiresAuth: true },
+      },
+      {
         path: 'pagos',
         name: 'Payments',
         component: () => import('@/views/PaymentsView'),
