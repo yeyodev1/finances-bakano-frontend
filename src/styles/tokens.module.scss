@@ -52,6 +52,9 @@ $sidebar-w-collapsed: 76px;
 $header-h: 62px;
 $bottomnav-h: 66px;
 $container-max: 1400px;
+/** Ancho mínimo de las tablas: por debajo, el contenedor scrollea en vez de
+    aplastar las columnas hasta que los encabezados se tocan. */
+$table-min-width: 860px;
 
 // ── Breakpoints (mobile-first) ─────────────────────────────────
 $bp-sm: 480px;

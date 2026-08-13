@@ -188,9 +188,21 @@ function sortIcon(column: TableColumn) {
 
 .tbl__table {
   width: 100%;
+  // Sin un ancho mínimo la tabla nunca desborda: reparte el hueco que haya y
+  // aplasta las columnas hasta que los encabezados se tocan. Entre 768 y 1024
+  // —sidebar ya oculto, pero aún en modo tabla— era ilegible. Con esto el
+  // contenedor scrollea, que es para lo que tiene `overflow-x: auto`.
+  min-width: $table-min-width;
   border-collapse: separate;
   border-spacing: 0;
   font-size: $fs-sm;
+}
+
+// Las celdas no parten las palabras: una columna estrecha no debe romper
+// "Transferencia" en dos líneas, prefiere que la tabla scrollee.
+.tbl__table th,
+.tbl__table td {
+  white-space: nowrap;
 }
 
 .tbl__head--sticky th {
