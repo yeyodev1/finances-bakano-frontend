@@ -48,6 +48,7 @@ async function handleLogout() {
 
         <nav class="drawer__nav">
           <RouterLink
+            data-cuelume-hover="tick"
             v-for="item in items"
             :key="item.name"
             :to="item.path"

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { BaseButton, BaseSwitch } from '@/components/base'
 import { useSound, CUES, type CueName } from '@/composables/useSound'
+import type { SoundName } from 'cuelume'
 
 /**
  * Preferencia de sonido. Vive en el navegador, no en el servidor: es de quien
@@ -21,6 +22,14 @@ const EXAMPLES: Array<{ cue: CueName; label: string; when: string }> = [
   { cue: 'navegar', label: 'Cambio de pantalla', when: 'Al ir de Cobros a Clientes' },
   { cue: 'trabajando', label: 'Empezó algo largo', when: 'Generar cobros, exportar CSV' },
   { cue: 'listo', label: 'Terminó', when: 'El archivo ya se puede descargar' },
+]
+
+/** Sonidos de interacción: los disparan los propios elementos al usarlos. */
+const INTERACTIONS: Array<{ label: string; when: string; sound: SoundName }> = [
+  { label: 'Botón principal', when: 'Al pulsar Guardar, Registrar pago…', sound: 'pulse' },
+  { label: 'Botón secundario', when: 'Al pulsar cualquier otro botón', sound: 'press' },
+  { label: 'Interruptor', when: 'Al activar o desactivar una opción', sound: 'toggle' },
+  { label: 'Menú lateral', when: 'Al pasar el ratón por una sección', sound: 'tick' },
 ]
 
 function onToggle(value: boolean) {
@@ -97,6 +106,31 @@ function onVolume(event: Event) {
               icon="fa-solid fa-play"
               :aria-label="`Escuchar el sonido de ${ex.label}`"
               @click="sound.preview(CUES[ex.cue])"
+            >
+              Escuchar
+            </BaseButton>
+          </li>
+        </ul>
+      </section>
+
+      <section class="snd__block">
+        <h3 class="snd__sub">Al usar la interfaz</h3>
+        <p class="snd__hint">
+          Estos los disparan los propios elementos. En pantallas táctiles el sonido al pasar por
+          encima no suena, porque no hay puntero.
+        </p>
+        <ul class="snd__list">
+          <li v-for="ix in INTERACTIONS" :key="ix.label" class="cue">
+            <div class="cue__text">
+              <span class="cue__label">{{ ix.label }}</span>
+              <span class="cue__when">{{ ix.when }}</span>
+            </div>
+            <BaseButton
+              size="sm"
+              variant="ghost"
+              icon="fa-solid fa-play"
+              :aria-label="`Escuchar el sonido de ${ix.label}`"
+              @click="sound.preview(ix.sound)"
             >
               Escuchar
             </BaseButton>

@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { play, setEnabled, setVolume, sounds, type SoundName } from 'cuelume'
+import { bind, play, setEnabled, setVolume, sounds, type SoundName } from 'cuelume'
 
 /**
  * Sonidos de interfaz (cuelume).
@@ -85,6 +85,11 @@ export function useSound() {
     if (started) return
     started = true
     sync()
+    // Delega los atributos `data-cuelume-*` de todo el documento. Es idempotente
+    // y cubre los elementos que se monten después, así que basta una vez.
+    // Si el sonido está apagado, `play()` es un no-op y estos tampoco suenan:
+    // la guarda vive en el motor, no en cada llamada.
+    bind()
   }
 
   function setSoundEnabled(value: boolean): void {

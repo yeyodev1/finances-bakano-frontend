@@ -53,6 +53,8 @@ function spawnRipple(event: MouseEvent) {
 
 <template>
   <button
+    :data-cuelume-press="props.variant === 'primary' || props.variant === 'success' ? 'pulse' : ''"
+    :data-cuelume-release="props.variant === 'primary' || props.variant === 'success' ? 'scan' : ''"
     class="btn"
     :class="[
       `btn--${props.variant}`,

@@ -42,6 +42,7 @@ function onKeydown(event: KeyboardEvent) {
     :class="[`switch--${props.size}`, { 'switch--disabled': props.disabled, 'switch--reverse': props.reverse }]"
   >
     <button
+      data-cuelume-toggle
       :id="uid"
       class="switch__track"
       type="button"
