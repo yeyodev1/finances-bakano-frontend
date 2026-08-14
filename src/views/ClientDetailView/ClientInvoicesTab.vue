@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { BaseBadge, BaseButton, BaseEmptyState, BaseSkeleton } from '@/components/base'
 import InvoiceReasonModal from '../CollectionsView/InvoiceReasonModal.vue'
 import InvoiceDeferModal from '../CollectionsView/InvoiceDeferModal.vue'
+import PaymentModal from '../CollectionsView/PaymentModal.vue'
+import InvoicePickerModal from '../PaymentsView/InvoicePickerModal.vue'
 import { useFormat } from '@/composables/useFormat'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
@@ -17,7 +19,13 @@ import {
 } from '@/stores/invoices'
 import type { Invoice } from '@/types'
 
-const props = defineProps<{ clientId: string }>()
+const props = withDefaults(
+  defineProps<{ clientId: string; clientName?: string }>(),
+  { clientName: '' },
+)
+
+/** El pago cambia la mora del cliente, y esa cifra la pinta la cabecera. */
+const emit = defineEmits<{ paid: [] }>()
 
 const store = useInvoicesStore()
 const toast = useToast()
@@ -30,6 +38,9 @@ const reasonTarget = ref<Invoice | null>(null)
 const reasonLoading = ref(false)
 const deferOpen = ref(false)
 const deferTarget = ref<Invoice | null>(null)
+const payOpen = ref(false)
+const payTarget = ref<Invoice | null>(null)
+const pickerOpen = ref(false)
 
 async function load() {
   try {
@@ -64,6 +75,42 @@ async function generateThisMonth() {
   } catch (error) {
     toast.error('No se pudo generar el cobro', apiErrorMessage(error))
   }
+}
+
+const openInvoices = computed(() => store.items.filter(isOpen))
+
+const openBalance = computed(() =>
+  openInvoices.value.reduce((acc, inv) => acc + balanceOf(inv), 0),
+)
+
+function balanceOf(invoice: Invoice): number {
+  return Math.max(Number(invoice.amount) - Number(invoice.paidAmount || 0), 0)
+}
+
+/**
+ * Con el cobro ya elegido se va directo a PaymentModal. El picker solo aparece
+ * cuando no hay un cobro concreto: para saldar varios de una o para crear el que
+ * falta cuando el cliente todavía no tiene ninguno.
+ */
+function openPay(invoice: Invoice) {
+  payTarget.value = invoice
+  payOpen.value = true
+}
+
+/** Con un solo cobro abierto no hay nada que elegir: se va derecho al pago. */
+function payOnlyOpen() {
+  const invoice = openInvoices.value[0]
+  if (invoice) openPay(invoice)
+}
+
+function onPicked(invoice: Invoice) {
+  payTarget.value = invoice
+  payOpen.value = true
+}
+
+async function onPaid() {
+  await load()
+  emit('paid')
 }
 
 function overdueDays(invoice: Invoice): number {
@@ -137,6 +184,43 @@ async function applyReason(reason: string) {
 
 <template>
   <div class="tab">
+    <!--
+      El pago es la acción principal de esta pestaña: antes había que salir a
+      /pagos y volver a buscar al cliente para poder registrarlo.
+    -->
+    <section v-if="!store.loading && store.items.length" class="bar">
+      <div class="bar__balance">
+        <span class="bar__label">
+          {{ openInvoices.length ? 'Saldo pendiente' : 'Sin saldo pendiente' }}
+        </span>
+        <span class="bar__value" :class="{ 'bar__value--clear': !openBalance }">
+          {{ formatMoney(openBalance) }}
+          <span v-if="openInvoices.length" class="bar__count">
+            en {{ openInvoices.length }} cobro{{ openInvoices.length === 1 ? '' : 's' }}
+          </span>
+        </span>
+      </div>
+
+      <div class="bar__actions">
+        <BaseButton
+          v-if="openInvoices.length === 1"
+          variant="success"
+          icon="fa-solid fa-hand-holding-dollar"
+          @click="payOnlyOpen"
+        >
+          Registrar pago
+        </BaseButton>
+        <BaseButton
+          v-else
+          variant="success"
+          icon="fa-solid fa-hand-holding-dollar"
+          @click="pickerOpen = true"
+        >
+          {{ openInvoices.length > 1 ? 'Registrar pago' : 'Registrar pago de otro período' }}
+        </BaseButton>
+      </div>
+    </section>
+
     <div v-if="store.loading" class="tab__skeleton">
       <BaseSkeleton v-for="n in 5" :key="n" height="72px" />
     </div>
@@ -154,6 +238,13 @@ async function applyReason(reason: string) {
           @click="generateThisMonth"
         >
           Generar cobro de {{ formatPeriod(currentPeriod) }}
+        </BaseButton>
+        <BaseButton
+          variant="outline"
+          icon="fa-solid fa-hand-holding-dollar"
+          @click="pickerOpen = true"
+        >
+          Ya me pagó
         </BaseButton>
       </template>
     </BaseEmptyState>
@@ -200,6 +291,14 @@ async function applyReason(reason: string) {
         </BaseBadge>
 
         <div v-if="isOpen(invoice)" class="row__actions">
+          <BaseButton
+            size="sm"
+            variant="success"
+            icon="fa-solid fa-hand-holding-dollar"
+            @click="openPay(invoice)"
+          >
+            Registrar pago
+          </BaseButton>
           <BaseButton size="sm" variant="ghost" icon="fa-solid fa-calendar-plus" @click="openDefer(invoice)">
             Aplazar cobro
           </BaseButton>
@@ -231,6 +330,16 @@ async function applyReason(reason: string) {
     />
 
     <InvoiceDeferModal v-model="deferOpen" :invoice="deferTarget" @deferred="load" />
+
+    <InvoicePickerModal
+      v-model="pickerOpen"
+      :client-id="props.clientId"
+      :client-name="props.clientName"
+      @picked="onPicked"
+      @settled="onPaid"
+    />
+
+    <PaymentModal v-model="payOpen" :invoice="payTarget" @registered="onPaid" />
   </div>
 </template>
 
@@ -239,6 +348,49 @@ async function applyReason(reason: string) {
 .tab__skeleton,
 .rows {
   @include flex-col($sp-3);
+}
+
+.bar {
+  @include card($sp-4);
+  @include flex(row, flex-start, center, $sp-3);
+  flex-wrap: wrap;
+
+  > * {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+}
+
+.bar__balance {
+  @include flex-col(2px);
+}
+
+.bar__label {
+  @include label-text;
+}
+
+.bar__value {
+  @include flex(row, flex-start, baseline, $sp-2);
+  flex-wrap: wrap;
+  font-size: $fs-lg;
+  font-weight: 800;
+  color: $alert-error;
+
+  // Sin deuda el número deja de ser una alarma.
+  &--clear {
+    color: $alert-success;
+  }
+}
+
+.bar__count {
+  font-size: $fs-xs;
+  font-weight: 600;
+  color: $text-secondary;
+}
+
+.bar__actions {
+  @include flex(row, flex-end, center, $sp-2);
+  flex-wrap: wrap;
 }
 
 .row {

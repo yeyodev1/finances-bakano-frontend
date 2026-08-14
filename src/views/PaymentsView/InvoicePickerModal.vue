@@ -13,6 +13,7 @@ import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
 import { PAYMENT_METHOD_OPTIONS, apiErrorMessage, useClientsStore } from '@/stores/clients'
 import { useInvoicesStore } from '@/stores/invoices'
+import { usePaymentsStore } from '@/stores/payments'
 import { api } from '@/services/api.service'
 import type { Invoice, PaymentMethod, SelectOption } from '@/types'
 
@@ -20,8 +21,14 @@ import type { Invoice, PaymentMethod, SelectOption } from '@/types'
  * Paso previo a PaymentModal desde /pagos: allí no se parte de un cobro, así que
  * primero hay que elegir cliente y cobro pendiente. Desde /cobros el cobro ya
  * viene dado y este modal no interviene.
+ *
+ * Con `clientId` fijo —la ficha del cliente— el selector de cliente desaparece y
+ * se entra directo a elegir el cobro, crear el que falta o saldar todo de una.
  */
-const props = defineProps<{ modelValue: boolean }>()
+const props = withDefaults(
+  defineProps<{ modelValue: boolean; clientId?: string | null; clientName?: string }>(),
+  { clientId: null, clientName: '' },
+)
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   picked: [invoice: Invoice]
@@ -30,6 +37,7 @@ const emit = defineEmits<{
 
 const clients = useClientsStore()
 const invoicesStore = useInvoicesStore()
+const paymentsStore = usePaymentsStore()
 const toast = useToast()
 const { formatMoney, formatPeriod, formatDateShort, toISODate } = useFormat()
 
@@ -86,7 +94,7 @@ async function submitSettle() {
 
   saving.value = true
   try {
-    const result = await api.settlePayment({
+    const result = await paymentsStore.settle({
       clientId: clientId.value,
       amount: Number(settleAmount.value),
       paidAt: settleDate.value || undefined,
@@ -119,8 +127,13 @@ const newPeriod = ref(currentPeriod())
 const newAmount = ref(0)
 const newDueDate = ref('')
 
+/** El cliente puede venir fijo por prop; si no, sale del selector. */
+const fixedClient = computed(() => Boolean(props.clientId))
+
 const selectedClient = computed(
-  () => clients.picker.find((c) => c._id === clientId.value) ?? null,
+  () =>
+    clients.picker.find((c) => c._id === clientId.value) ??
+    (clients.current?._id === clientId.value ? clients.current : null),
 )
 
 const clientModel = computed<string | number | null>({
@@ -231,7 +244,7 @@ watch(
   () => props.modelValue,
   (open) => {
     if (!open) return
-    clientId.value = ''
+    clientId.value = props.clientId || ''
     invoiceId.value = ''
     invoices.value = []
     creating.value = false
@@ -239,6 +252,13 @@ watch(
     settleReference.value = ''
     newPeriod.value = currentPeriod()
     newAmount.value = 0
+
+    // Con cliente fijo se salta el picker: sus cobros se cargan de una.
+    if (fixedClient.value) {
+      void loadInvoices()
+      return
+    }
+
     clients.fetchPicker().catch((error) => {
       toast.error('No se pudieron cargar los clientes', apiErrorMessage(error))
     })
@@ -270,6 +290,7 @@ function confirm() {
   >
     <div class="picker">
       <BaseSelect
+        v-if="!fixedClient"
         v-model="clientModel"
         :options="clients.pickerOptions"
         label="Cliente"
@@ -279,6 +300,11 @@ function confirm() {
         searchable
         required
       />
+
+      <p v-else class="picker__fixed">
+        <i class="fa-solid fa-user" aria-hidden="true" />
+        Pago de <strong>{{ props.clientName || selectedClient?.name || 'este cliente' }}</strong>
+      </p>
 
       <!-- Cobro dividido pagado de una sola vez -->
       <button v-if="canSettle && !settleAll" class="picker__toggle" type="button" @click="toggleSettle">
@@ -420,6 +446,25 @@ function confirm() {
 <style scoped lang="scss">
 .picker {
   @include flex-col($sp-4);
+}
+
+.picker__fixed {
+  @include flex(row, flex-start, center, $sp-2);
+  padding: $sp-3 $sp-4;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($primary, 0.18);
+  background: rgba($primary, 0.05);
+  font-size: $fs-xs;
+  color: $text-secondary;
+
+  i {
+    color: $primary;
+  }
+
+  strong {
+    color: $primary-dark;
+    font-weight: 700;
+  }
 }
 
 .picker__summary {
