@@ -157,7 +157,13 @@ async function revokeAccess() {
       <BaseTabs v-model="tab" :tabs="tabs" />
 
       <Transition name="fade-slide" mode="out-in">
-        <ClientInvoicesTab v-if="tab === 'invoices'" :key="`inv-${clientId}`" :client-id="clientId" />
+        <ClientInvoicesTab
+          v-if="tab === 'invoices'"
+          :key="`inv-${clientId}`"
+          :client-id="clientId"
+          :client-name="client.name"
+          @paid="load"
+        />
         <ClientPaymentsTab v-else-if="tab === 'payments'" :key="`pay-${clientId}`" :client-id="clientId" />
         <ClientLifecycleTab
           v-else-if="tab === 'lifecycle'"

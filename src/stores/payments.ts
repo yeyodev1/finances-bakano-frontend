@@ -133,6 +133,28 @@ export const usePaymentsStore = defineStore('payments', {
       }
     },
 
+    /**
+     * Un solo pago que salda varios cobros del mismo cliente, del más viejo al más
+     * nuevo. Es el caso de los cobros divididos: debe 210 el 8 y 210 el 23 pero
+     * transfiere los 420 de una.
+     */
+    async settle(input: {
+      clientId: string
+      amount: number
+      paidAt?: string
+      method?: PaymentMethod
+      reference?: string
+      notes?: string
+      invoiceIds?: string[]
+    }) {
+      this.saving = true
+      try {
+        return await api.settlePayment(input)
+      } finally {
+        this.saving = false
+      }
+    },
+
     async remove(id: string) {
       await api.deletePayment(id)
       this.items = this.items.filter((p) => p._id !== id)
