@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { BaseButton, BaseEmptyState } from '@/components/base'
 import ChurnKpis from './ChurnKpis.vue'
 import ChurnReasonsPanel from './ChurnReasonsPanel.vue'
+import ChurnRetentionPanel from './ChurnRetentionPanel.vue'
 import ChurnRecentList from './ChurnRecentList.vue'
 import ChurnDatesModal from './ChurnDatesModal.vue'
 import ClientArchiveModal from '@/views/ClientsView/ClientArchiveModal.vue'
@@ -78,6 +79,12 @@ async function onChanged() {
 
     <template v-else>
       <ChurnKpis :totals="store.report.totals" :loading="store.loading" />
+
+      <ChurnRetentionPanel
+        :guarantees="store.report.guarantees ?? null"
+        :refunds="store.report.refunds ?? null"
+        :loading="store.loading"
+      />
 
       <ChurnReasonsPanel :rows="store.report.byReason" :loading="store.loading" />
 

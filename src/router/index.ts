@@ -38,6 +38,16 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Ficha del cliente', requiresAuth: true, hideInNav: true },
       },
       {
+        path: 'garantias',
+        name: 'Retention',
+        component: () => import('@/views/RetentionView'),
+        meta: {
+          title: 'Garantías',
+          icon: 'fa-solid fa-shield-halved',
+          requiresAuth: true,
+        },
+      },
+      {
         path: 'bajas',
         name: 'Churn',
         component: () => import('@/views/ChurnView'),

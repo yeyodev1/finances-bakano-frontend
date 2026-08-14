@@ -17,12 +17,18 @@ import type {
   ClientCategory,
   ClientStats,
   DashboardSummary,
+  Guarantee,
+  GuaranteeOutcome,
+  GuaranteeSummary,
   Invoice,
   InvoiceSummary,
   NotificationSettings,
   PaginatedResult,
   Payment,
   PaymentMethod,
+  Refund,
+  RefundReason,
+  RefundSummary,
   RevenuePoint,
   Sale,
   SaleBilling,
@@ -294,6 +300,105 @@ class ApiService extends APIBase {
   }
   async deletePayment(id: string) {
     const { data } = await this.delete<{ message: string }>(`payments/${id}`)
+    return data
+  }
+
+  // ── Reembolsos ───────────────────────────────────────────────
+  async listRefunds(params: Query = {}) {
+    const { data } = await this.get<PaginatedResult<Refund>>(`refunds${qs(params)}`)
+    return data
+  }
+  async refundSummary() {
+    const { data } = await this.get<RefundSummary>('refunds/summary')
+    return data
+  }
+  /**
+   * El comprobante viaja como archivo, así que va en FormData igual que el pago.
+   * `archiveClient` en el formulario deja al cliente de baja en el mismo paso.
+   */
+  async registerRefund(form: FormData) {
+    const { data } = await this.post<{
+      refund: Refund
+      invoice: Invoice
+      archived: boolean
+      netCollected: number
+      message: string
+    }>('refunds', form)
+    return data
+  }
+  async refundsByClient(clientId: string) {
+    const { data } = await this.get<Wrapped<Refund>>(`refunds/client/${clientId}`)
+    return data.items ?? []
+  }
+  async deleteRefund(id: string) {
+    const { data } = await this.delete<{ message: string }>(`refunds/${id}`)
+    return data
+  }
+
+  // ── Garantías ────────────────────────────────────────────────
+  async listGuarantees(params: Query = {}) {
+    const { data } = await this.get<PaginatedResult<Guarantee>>(`guarantees${qs(params)}`)
+    return data
+  }
+  async guaranteeSummary() {
+    const { data } = await this.get<GuaranteeSummary>('guarantees/summary')
+    return data
+  }
+  /** Abre el mes de garantía: el período indicado deja de cobrarse. */
+  async openGuarantee(payload: {
+    clientId: string
+    period?: string
+    triggerPeriod?: string
+    reason?: string
+  }) {
+    const { data } = await this.post<{
+      guarantee: Guarantee
+      waivedAmount: number
+      waivedInvoices: number
+      message: string
+    }>('guarantees', payload)
+    return data
+  }
+  /** Segundo y último mes que permite la política. */
+  async extendGuarantee(id: string, payload: { period?: string; resultNotes?: string } = {}) {
+    const { data } = await this.post<{
+      guarantee: Guarantee
+      waivedAmount: number
+      message: string
+    }>(`guarantees/${id}/extend`, payload)
+    return data
+  }
+  async closeGuarantee(
+    id: string,
+    payload: {
+      outcome: GuaranteeOutcome
+      notes?: string
+      archiveClient?: boolean
+      refund?: {
+        paymentId?: string
+        invoiceId?: string
+        amount: number
+        reason?: RefundReason
+        refundedAt?: string
+        notes?: string
+      }
+    },
+  ) {
+    const { data } = await this.post<{
+      guarantee: Guarantee
+      archived: boolean
+      refundId: string | null
+      restoredInvoices: number
+      message: string
+    }>(`guarantees/${id}/close`, payload)
+    return data
+  }
+  async guaranteesByClient(clientId: string) {
+    const { data } = await this.get<{
+      total: number
+      items: Guarantee[]
+      current: Guarantee | null
+    }>(`guarantees/client/${clientId}`)
     return data
   }
 

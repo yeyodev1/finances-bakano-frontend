@@ -11,6 +11,8 @@ export const ARCHIVE_REASON_ICONS: Record<ArchiveReason, string> = {
   pausa_temporal: 'fa-solid fa-circle-pause',
   fin_contrato: 'fa-solid fa-file-signature',
   decision_bakano: 'fa-solid fa-gavel',
+  reembolso: 'fa-solid fa-rotate-left',
+  garantia_fallida: 'fa-solid fa-shield-halved',
   otro: 'fa-solid fa-circle-question',
 }
 
@@ -25,6 +27,8 @@ export const ARCHIVE_REASON_TONES: Record<ArchiveReason, string> = {
   pausa_temporal: 'info',
   fin_contrato: 'neutral',
   decision_bakano: 'secondary',
+  reembolso: 'danger',
+  garantia_fallida: 'danger',
   otro: 'neutral',
 }
 
@@ -38,6 +42,8 @@ export const ARCHIVE_REASON_COLORS: Record<ArchiveReason, string> = {
   pausa_temporal: '#3b82f6',
   fin_contrato: '#85529c',
   decision_bakano: '#191423',
+  reembolso: '#b91c1c',
+  garantia_fallida: '#7f1d1d',
   otro: '#9ca3af',
 }
 
