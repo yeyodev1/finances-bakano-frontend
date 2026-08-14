@@ -16,6 +16,7 @@ const ORDER = [
   'Payments',
   'Sales',
   'Bank',
+  'Retention',
   'Churn',
   'Workspaces',
   'Users',

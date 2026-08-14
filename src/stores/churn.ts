@@ -55,6 +55,9 @@ export const useChurnStore = defineStore('churn', {
           byReason: Array.isArray(data?.byReason) ? data.byReason : [],
           totals: { ...base.totals, ...(data?.totals ?? {}) },
           recent: Array.isArray(data?.recent) ? data.recent : [],
+          // Un backend viejo no las manda: el panel de retención degrada solo.
+          guarantees: data?.guarantees,
+          refunds: data?.refunds,
         }
         this.unavailable = false
         this.loaded = true

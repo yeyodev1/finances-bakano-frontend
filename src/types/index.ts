@@ -42,6 +42,8 @@ export type ArchiveReason =
   | 'pausa_temporal'
   | 'fin_contrato'
   | 'decision_bakano'
+  | 'reembolso'
+  | 'garantia_fallida'
   | 'otro'
 
 export const ARCHIVE_REASON_LABELS: Record<ArchiveReason, string> = {
@@ -54,7 +56,152 @@ export const ARCHIVE_REASON_LABELS: Record<ArchiveReason, string> = {
   pausa_temporal: 'Pausa temporal',
   fin_contrato: 'Fin de contrato',
   decision_bakano: 'Decisión de Bakano',
+  reembolso: 'Se le devolvió el dinero',
+  garantia_fallida: 'Garantía agotada sin resultados',
   otro: 'Otro',
+}
+
+// ── Reembolsos ───────────────────────────────────────────────────
+
+export const REFUND_REASONS = [
+  'garantia',
+  'sin_resultados',
+  'servicio_no_prestado',
+  'cobro_duplicado',
+  'error_de_cobro',
+  'acuerdo_comercial',
+  'otro',
+] as const
+export type RefundReason = (typeof REFUND_REASONS)[number]
+
+export const REFUND_REASON_LABELS: Record<RefundReason, string> = {
+  garantia: 'Garantía: no hubo resultados',
+  sin_resultados: 'Sin resultados',
+  servicio_no_prestado: 'Servicio no prestado',
+  cobro_duplicado: 'Cobro duplicado',
+  error_de_cobro: 'Error en el cobro',
+  acuerdo_comercial: 'Acuerdo comercial',
+  otro: 'Otro',
+}
+
+export interface Refund {
+  _id: string
+  paymentId?: string | null
+  invoiceId?: string | Invoice | null
+  clientId: string | Client
+  clientName: string
+  period: string
+  amount: number
+  currency: string
+  refundedAt: string
+  method: PaymentMethod
+  reference?: string
+  reason: RefundReason
+  notes?: string
+  receiptUrl?: string
+  guaranteeId?: string | null
+  /** El reembolso vino con la baja del cliente en el mismo paso. */
+  archivedClient: boolean
+  registeredByName?: string
+  createdAt: string
+}
+
+export interface RefundReasonRow {
+  reason: RefundReason
+  label: string
+  count: number
+  amount: number
+}
+
+export interface RefundSummary {
+  count: number
+  amount: number
+  monthCount: number
+  monthAmount: number
+  archivedClients: number
+  byReason: RefundReasonRow[]
+}
+
+// ── Garantías ────────────────────────────────────────────────────
+// Política de agencia: al cliente que no vio resultados se le regala el mes
+// siguiente. Si aparecen resultados vuelve a cobrarse; si no, se estira un segundo
+// mes y, agotado el tope, la garantía se cierra como fracaso.
+
+export const GUARANTEE_STATUSES = [
+  'abierta',
+  'extendida',
+  'cumplida',
+  'fallida',
+  'cancelada',
+] as const
+export type GuaranteeStatus = (typeof GUARANTEE_STATUSES)[number]
+
+export const GUARANTEE_STATUS_LABELS: Record<GuaranteeStatus, string> = {
+  abierta: 'Primer mes de garantía',
+  extendida: 'Segundo mes de garantía',
+  cumplida: 'Hubo resultados: vuelve a cobrarse',
+  fallida: 'Fracaso: sin resultados en dos meses',
+  cancelada: 'Garantía cancelada',
+}
+
+export const GUARANTEE_OPEN_STATUSES: GuaranteeStatus[] = ['abierta', 'extendida']
+
+export const GUARANTEE_MAX_CYCLES = 2
+
+export type GuaranteeOutcome = 'cumplida' | 'fallida' | 'cancelada'
+
+export interface GuaranteeCycle {
+  cycle: number
+  period: string
+  invoiceIds: string[]
+  waivedAmount: number
+  openedAt: string
+  resultNotes?: string
+  byName?: string
+}
+
+export interface Guarantee {
+  _id: string
+  clientId: string | Client
+  clientName: string
+  status: GuaranteeStatus
+  triggerPeriod: string
+  reason?: string
+  cycles: GuaranteeCycle[]
+  maxCycles: number
+  monthlyAmount: number
+  openedAt: string
+  closedAt?: string | null
+  outcomeNotes?: string
+  archivedClient: boolean
+  refundId?: string | null
+  openedByName?: string
+  closedByName?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GuaranteeSummary {
+  open: number
+  firstMonth: number
+  secondMonth: number
+  recovered: number
+  failed: number
+  cancelled: number
+  /** Cobro mensual que hoy no entra por estar en garantía. */
+  waivedMonthly: number
+  waivedTotal: number
+  /** Cumplidas sobre cerradas, en porcentaje. */
+  recoveryRate: number
+}
+
+/** Caché de la garantía vigente que viaja dentro del cliente. */
+export interface ClientGuarantee {
+  status?: GuaranteeStatus | null
+  guaranteeId?: string | null
+  cycle: number
+  period?: string | null
+  since?: string | null
 }
 
 export interface ClientAttachment {
@@ -103,6 +250,10 @@ export interface ChurnReport {
     avgLifetimeDays: number
     totalLifetimeRevenue: number
   }
+  /** Lo que Bakano invierte en retener antes de perder al cliente. */
+  guarantees?: GuaranteeSummary
+  /** Lo que se devolvió. */
+  refunds?: RefundSummary
   recent: Array<{
     _id: string
     name: string
@@ -179,6 +330,9 @@ export interface Client {
   lifetimeRevenue?: number | null
   lifecycleHistory: ClientLifecycleEntry[]
 
+  /** Garantía vigente. `cycle: 0` = ninguna. */
+  guarantee?: ClientGuarantee | null
+
   stripeCustomerId?: string | null
   createdAt: string
   updatedAt: string
@@ -200,6 +354,12 @@ export interface Invoice {
   deferrals: InvoiceDeferral[]
   isAdvance: boolean
   paidAt?: string | null
+  /** Devuelto sobre este cobro. No se resta de `paidAmount`: el neto es la diferencia. */
+  refundedAmount?: number
+  refundedAt?: string | null
+  /** Mes regalado por garantía: se emite condonado. */
+  isGuarantee?: boolean
+  guaranteeId?: string | null
   status: InvoiceStatus
   notes?: string
   autoGenerated: boolean
