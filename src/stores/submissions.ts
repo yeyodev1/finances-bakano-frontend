@@ -101,7 +101,8 @@ export interface StripeImportState {
   customers: StripeCustomerRow[]
   configured: boolean | null
   loading: boolean
-  saving: boolean
+  /** stripeCustomerId de la fila que se está vinculando/desvinculando: el estado es POR FILA. */
+  savingId: string | null
   importing: string | null
   error: string | null
   lastImport: StripeImportResult | null
@@ -113,7 +114,7 @@ export const useStripeImportStore = defineStore('stripeImport', {
     customers: [],
     configured: null,
     loading: false,
-    saving: false,
+    savingId: null,
     importing: null,
     error: null,
     lastImport: null,
@@ -124,8 +125,9 @@ export const useStripeImportStore = defineStore('stripeImport', {
   },
 
   actions: {
-    async fetch() {
-      this.loading = true
+    /** `silent` refresca los datos sin volver a mostrar los skeletons de carga. */
+    async fetch(silent = false) {
+      if (!silent) this.loading = true
       this.error = null
       try {
         const status = await api.stripeStatus()
@@ -135,29 +137,45 @@ export const useStripeImportStore = defineStore('stripeImport', {
         this.error = apiErrorMessage(error, 'No se pudo consultar Stripe')
         throw error
       } finally {
-        this.loading = false
+        if (!silent) this.loading = false
       }
     },
 
     async link(clientId: string, stripeCustomerId: string) {
-      this.saving = true
+      this.savingId = stripeCustomerId
       try {
         const result = await api.stripeLinkCustomer({ clientId, stripeCustomerId })
-        await this.fetch()
+        // Se actualiza SOLO la fila vinculada: nada de recargar la tabla entera.
+        const row = this.customers.find((c) => c.stripeCustomerId === stripeCustomerId)
+        if (row) {
+          row.linkedClientId = result.client._id
+          row.linkedClientName = result.client.name
+          row.suggestions = []
+        }
         return result
       } finally {
-        this.saving = false
+        this.savingId = null
       }
     },
 
     async unlink(clientId: string, stripeCustomerId?: string) {
-      this.saving = true
+      this.savingId = stripeCustomerId || clientId
       try {
         const result = await api.stripeUnlinkCustomer(clientId, stripeCustomerId)
-        await this.fetch()
+        for (const row of this.customers) {
+          const removed = stripeCustomerId
+            ? row.stripeCustomerId === stripeCustomerId
+            : row.linkedClientId === clientId
+          if (removed) {
+            row.linkedClientId = null
+            row.linkedClientName = null
+          }
+        }
+        // Refresco silencioso para recuperar las sugerencias de la fila liberada.
+        void this.fetch(true).catch(() => undefined)
         return result
       } finally {
-        this.saving = false
+        this.savingId = null
       }
     },
 

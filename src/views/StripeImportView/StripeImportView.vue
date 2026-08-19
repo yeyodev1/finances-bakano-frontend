@@ -168,7 +168,8 @@ const summary = computed(() => store.lastImport)
             variant="primary"
             size="sm"
             icon="fa-solid fa-wand-magic-sparkles"
-            :loading="store.saving"
+            :loading="store.savingId === row.stripeCustomerId"
+            :disabled="store.savingId !== null && store.savingId !== row.stripeCustomerId"
             @click="linkTo(row, bestSuggestion(row)!.clientId, bestSuggestion(row)!.clientName)"
           >
             Vincular con {{ bestSuggestion(row)!.clientName }}
@@ -186,7 +187,8 @@ const summary = computed(() => store.lastImport)
               variant="ghost"
               size="sm"
               icon="fa-solid fa-link"
-              :disabled="!manualSelection[row.stripeCustomerId]"
+              :loading="store.savingId === row.stripeCustomerId"
+              :disabled="!manualSelection[row.stripeCustomerId] || store.savingId !== null"
               @click="linkManual(row)"
             >
               Vincular
@@ -239,7 +241,11 @@ const summary = computed(() => store.lastImport)
             variant="primary"
             size="sm"
             icon="fa-solid fa-wand-magic-sparkles"
-            :loading="store.saving"
+            :loading="store.savingId === (row as StripeCustomerRow).stripeCustomerId"
+            :disabled="
+              store.savingId !== null &&
+              store.savingId !== (row as StripeCustomerRow).stripeCustomerId
+            "
             @click="
               linkTo(
                 row as StripeCustomerRow,
@@ -265,7 +271,11 @@ const summary = computed(() => store.lastImport)
               variant="ghost"
               size="sm"
               icon="fa-solid fa-link"
-              :disabled="!manualSelection[(row as StripeCustomerRow).stripeCustomerId]"
+              :loading="store.savingId === (row as StripeCustomerRow).stripeCustomerId"
+              :disabled="
+                !manualSelection[(row as StripeCustomerRow).stripeCustomerId] ||
+                store.savingId !== null
+              "
               @click="linkManual(row as StripeCustomerRow)"
             >
               Vincular
