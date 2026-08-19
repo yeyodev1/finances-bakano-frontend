@@ -242,8 +242,17 @@ export interface ChurnReasonRow {
   totalLifetimeRevenue: number
 }
 
+export interface ChurnMonthRow {
+  /** "YYYY-MM" en hora de Ecuador. */
+  month: string
+  count: number
+  lostMonthlyAmount: number
+}
+
 export interface ChurnReport {
   byReason: ChurnReasonRow[]
+  /** Bajas agrupadas por mes. Un backend viejo no lo manda. */
+  byMonth?: ChurnMonthRow[]
   totals: {
     archivedClients: number
     lostMonthlyAmount: number
