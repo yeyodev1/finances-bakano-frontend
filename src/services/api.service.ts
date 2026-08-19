@@ -27,6 +27,7 @@ import type {
   Payment,
   PaymentMethod,
   PaymentSubmission,
+  CrmConsumptionList,
   StripeCustomerRow,
   StripeImportResult,
   Refund,
@@ -357,6 +358,24 @@ class ApiService extends APIBase {
   }
   async stripeImportCharges(clientId: string) {
     const { data } = await this.post<StripeImportResult>('stripe/import/charges', { clientId })
+    return data
+  }
+
+  // ── Consumo CRM (GoHighLevel) ────────────────────────────────
+  async listCrmConsumption(params: Query = {}) {
+    const { data } = await this.get<CrmConsumptionList>(`crm-consumption${qs(params)}`)
+    return data
+  }
+  /** Reclasifica: el cargo era una mensualidad y se registra como pago de esa factura. */
+  async applyCrmConsumption(id: string, invoiceId: string) {
+    const { data } = await this.post<{ payment: Payment; invoice: Invoice; message: string }>(
+      `crm-consumption/${id}/apply`,
+      { invoiceId },
+    )
+    return data
+  }
+  async removeCrmConsumption(id: string) {
+    const { data } = await this.delete<{ message: string }>(`crm-consumption/${id}`)
     return data
   }
 

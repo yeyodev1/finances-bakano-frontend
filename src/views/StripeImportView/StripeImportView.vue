@@ -317,14 +317,18 @@ const summary = computed(() => store.lastImport)
           </ul>
         </section>
 
-        <section v-if="summary.unmatched.length" class="summary__unmatched">
-          <h4><i class="fa-solid fa-triangle-exclamation" aria-hidden="true" /> Sin factura (aplicar a mano)</h4>
+        <section v-if="summary.crmSaved.length" class="summary__crm">
+          <h4><i class="fa-solid fa-plug-circle-bolt" aria-hidden="true" /> Guardados como consumo CRM</h4>
           <ul>
-            <li v-for="item in summary.unmatched" :key="item.stripeChargeId">
+            <li v-for="item in summary.crmSaved" :key="item.stripeChargeId">
               {{ formatMoney(item.amount) }} · {{ formatDateShort(item.paidAt) }}
-              <small>{{ item.reason }}</small>
+              <small>{{ item.description || 'Cargo sin factura que calce: consumo del GoHighLevel' }}</small>
             </li>
           </ul>
+          <p class="summary__note">
+            Revísalos en la sección <strong>Consumo CRM</strong>; desde ahí se pueden aplicar a una
+            factura si alguno era mensualidad.
+          </p>
         </section>
 
         <p v-if="summary.skipped.length" class="summary__skipped">
@@ -452,8 +456,14 @@ const summary = computed(() => store.lastImport)
     }
   }
 
-  &__unmatched h4 i {
-    color: $alert-warning;
+  &__crm h4 i {
+    color: $alert-info;
+  }
+
+  &__note {
+    margin: $sp-2 0 0;
+    font-size: $fs-xs;
+    color: rgba($primary-dark, 0.65);
   }
 
   &__skipped {
