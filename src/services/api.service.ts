@@ -348,9 +348,10 @@ class ApiService extends APIBase {
     )
     return data
   }
-  async stripeUnlinkCustomer(clientId: string) {
+  async stripeUnlinkCustomer(clientId: string, stripeCustomerId?: string) {
+    const suffix = stripeCustomerId ? `/${stripeCustomerId}` : ''
     const { data } = await this.delete<{ message: string; client: Client }>(
-      `stripe/import/link/${clientId}`,
+      `stripe/import/link/${clientId}${suffix}`,
     )
     return data
   }

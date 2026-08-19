@@ -150,10 +150,10 @@ export const useStripeImportStore = defineStore('stripeImport', {
       }
     },
 
-    async unlink(clientId: string) {
+    async unlink(clientId: string, stripeCustomerId?: string) {
       this.saving = true
       try {
-        const result = await api.stripeUnlinkCustomer(clientId)
+        const result = await api.stripeUnlinkCustomer(clientId, stripeCustomerId)
         await this.fetch()
         return result
       } finally {

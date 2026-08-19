@@ -81,15 +81,15 @@ function linkManual(row: StripeCustomerRow) {
 async function unlink(row: StripeCustomerRow) {
   if (!row.linkedClientId) return
   const ok = await confirm({
-    title: 'Desvincular de Stripe',
-    message: `${row.linkedClientName} dejará de estar vinculado a ${row.stripeCustomerId}. Sus pagos futuros de Stripe quedarán sin registrar.`,
-    confirmLabel: 'Desvincular',
+    title: 'Desvincular este perfil de Stripe',
+    message: `Se quitará el perfil ${row.stripeCustomerId} de ${row.linkedClientName}. Si el cliente tiene otros perfiles vinculados, esos se conservan.`,
+    confirmLabel: 'Desvincular perfil',
     variant: 'danger',
   })
   if (!ok) return
 
   try {
-    const result = await store.unlink(row.linkedClientId)
+    const result = await store.unlink(row.linkedClientId, row.stripeCustomerId)
     toast.success('Cliente desvinculado', result.message)
   } catch (error) {
     toast.error('No se pudo desvincular', apiErrorMessage(error))
