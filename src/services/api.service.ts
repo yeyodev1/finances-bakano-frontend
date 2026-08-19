@@ -26,6 +26,9 @@ import type {
   PaginatedResult,
   Payment,
   PaymentMethod,
+  PaymentSubmission,
+  StripeCustomerRow,
+  StripeImportResult,
   Refund,
   RefundReason,
   RefundSummary,
@@ -300,6 +303,59 @@ class ApiService extends APIBase {
   }
   async deletePayment(id: string) {
     const { data } = await this.delete<{ message: string }>(`payments/${id}`)
+    return data
+  }
+
+  // ── Comprobantes del portal (transferencias del cliente) ─────
+  async listSubmissions(params: Query = {}) {
+    const { data } = await this.get<PaginatedResult<PaymentSubmission>>(
+      `payment-submissions${qs(params)}`,
+    )
+    return data
+  }
+  /** Aprueba por el NETO recibido: el fee bancario lo asume el cliente. */
+  async approveSubmission(id: string, payload: { invoiceId?: string; reviewNote?: string } = {}) {
+    const { data } = await this.post<{
+      submission: PaymentSubmission
+      payment: Payment
+      invoice: Invoice
+    }>(`payment-submissions/${id}/approve`, payload)
+    return data
+  }
+  async rejectSubmission(id: string, payload: { reviewNote: string }) {
+    const { data } = await this.post<{ submission: PaymentSubmission }>(
+      `payment-submissions/${id}/reject`,
+      payload,
+    )
+    return data
+  }
+
+  // ── Stripe ───────────────────────────────────────────────────
+  async stripeStatus() {
+    const { data } = await this.get<{ configured: boolean; webhookConfigured: boolean }>(
+      'stripe/status',
+    )
+    return data
+  }
+  async stripeImportCustomers() {
+    const { data } = await this.get<{ customers: StripeCustomerRow[] }>('stripe/import/customers')
+    return data.customers
+  }
+  async stripeLinkCustomer(payload: { clientId: string; stripeCustomerId: string }) {
+    const { data } = await this.post<{ message: string; client: Client }>(
+      'stripe/import/link',
+      payload,
+    )
+    return data
+  }
+  async stripeUnlinkCustomer(clientId: string) {
+    const { data } = await this.delete<{ message: string; client: Client }>(
+      `stripe/import/link/${clientId}`,
+    )
+    return data
+  }
+  async stripeImportCharges(clientId: string) {
+    const { data } = await this.post<StripeImportResult>('stripe/import/charges', { clientId })
     return data
   }
 
