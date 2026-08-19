@@ -6,6 +6,7 @@ import type { ChurnReasonRow, ChurnReport } from '@/types'
 export function emptyChurnReport(): ChurnReport {
   return {
     byReason: [],
+    byMonth: [],
     totals: {
       archivedClients: 0,
       lostMonthlyAmount: 0,
@@ -53,6 +54,8 @@ export const useChurnStore = defineStore('churn', {
         const base = emptyChurnReport()
         this.report = {
           byReason: Array.isArray(data?.byReason) ? data.byReason : [],
+          // Un backend viejo no lo manda: el panel mensual degrada solo.
+          byMonth: Array.isArray(data?.byMonth) ? data.byMonth : [],
           totals: { ...base.totals, ...(data?.totals ?? {}) },
           recent: Array.isArray(data?.recent) ? data.recent : [],
           // Un backend viejo no las manda: el panel de retención degrada solo.
