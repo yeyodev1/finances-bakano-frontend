@@ -66,6 +66,28 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Pagos', icon: 'fa-solid fa-receipt', requiresAuth: true },
       },
       {
+        path: 'comprobantes',
+        name: 'Submissions',
+        component: () => import('@/views/SubmissionsView'),
+        meta: {
+          title: 'Comprobantes',
+          icon: 'fa-solid fa-file-circle-check',
+          requiresAuth: true,
+          roles: ['superadmin', 'admin'],
+        },
+      },
+      {
+        path: 'stripe',
+        name: 'Stripe',
+        component: () => import('@/views/StripeImportView'),
+        meta: {
+          title: 'Stripe',
+          icon: 'fa-brands fa-stripe-s',
+          requiresAuth: true,
+          roles: ['superadmin', 'admin'],
+        },
+      },
+      {
         path: 'banco',
         name: 'Bank',
         component: () => import('@/views/BankView'),

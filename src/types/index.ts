@@ -399,7 +399,67 @@ export interface Payment {
   notes?: string
   receiptUrl?: string
   registeredByName?: string
+  source?: PaymentSource
+  stripeChargeId?: string
+  /** Transferencias internacionales: lo enviado y lo que se comió el banco. */
+  grossAmount?: number
+  feeAmount?: number
   createdAt: string
+}
+
+export type PaymentSource = 'manual' | 'stripe' | 'client_submission'
+
+export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
+
+/** Comprobante de transferencia subido por el cliente desde el portal de metrics. */
+export interface PaymentSubmission {
+  _id: string
+  clientId: string | Client
+  clientName: string
+  workspaceId: string
+  invoiceId?: string | Invoice | null
+  grossAmount: number
+  feeAmount: number
+  netAmount: number
+  currency: string
+  receiptUrl: string
+  status: SubmissionStatus
+  /** SLA prometido al cliente: 48 horas laborables desde la subida. */
+  reviewDueAt: string
+  submittedByName?: string
+  submittedByEmail?: string
+  reviewedByName?: string
+  reviewedAt?: string
+  reviewNote?: string
+  paymentId?: string
+  createdAt: string
+}
+
+export interface StripeCustomerSuggestion {
+  clientId: string
+  clientName: string
+  /** Similitud de nombre 0-1. */
+  score: number
+}
+
+export interface StripeCustomerRow {
+  stripeCustomerId: string
+  name: string
+  email?: string
+  created: string
+  linkedClientId: string | null
+  linkedClientName: string | null
+  suggestions: StripeCustomerSuggestion[]
+}
+
+export interface StripeImportResult {
+  clientId: string
+  clientName: string
+  totalCharges: number
+  imported: Array<{ stripeChargeId: string; amount: number; period: string }>
+  skipped: Array<{ stripeChargeId: string; reason: string }>
+  unmatched: Array<{ stripeChargeId: string; amount: number; paidAt: string; reason: string }>
+  message: string
 }
 
 export interface WorkspaceImage {
