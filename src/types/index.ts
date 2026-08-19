@@ -460,6 +460,8 @@ export interface StripeImportResult {
   skipped: Array<{ stripeChargeId: string; reason: string }>
   /** Cargos sin factura que calce: quedan guardados en la sección Consumo CRM. */
   crmSaved: Array<{ stripeChargeId: string; amount: number; paidAt: string; description?: string }>
+  /** Cargos adoptados por pagos que ya estaban registrados a mano (mismo dinero). */
+  reconciled?: Array<{ stripeChargeId: string; amount: number; paidAt: string }>
   message: string
 }
 
