@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseEmptyState } from '@/components/base'
 import ChurnKpis from './ChurnKpis.vue'
+import ChurnMonthlyPanel from './ChurnMonthlyPanel.vue'
 import ChurnReasonsPanel from './ChurnReasonsPanel.vue'
 import ChurnRetentionPanel from './ChurnRetentionPanel.vue'
 import ChurnRecentList from './ChurnRecentList.vue'
@@ -85,6 +86,8 @@ async function onChanged() {
         :refunds="store.report.refunds ?? null"
         :loading="store.loading"
       />
+
+      <ChurnMonthlyPanel :rows="store.report.byMonth ?? []" :loading="store.loading" />
 
       <ChurnReasonsPanel :rows="store.report.byReason" :loading="store.loading" />
 
