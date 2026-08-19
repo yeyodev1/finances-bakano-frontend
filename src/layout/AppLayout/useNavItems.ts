@@ -16,6 +16,7 @@ const ORDER = [
   'Payments',
   'Submissions',
   'Stripe',
+  'CrmConsumption',
   'Sales',
   'Bank',
   'Retention',

@@ -458,8 +458,40 @@ export interface StripeImportResult {
   totalCharges: number
   imported: Array<{ stripeChargeId: string; amount: number; period: string }>
   skipped: Array<{ stripeChargeId: string; reason: string }>
-  unmatched: Array<{ stripeChargeId: string; amount: number; paidAt: string; reason: string }>
+  /** Cargos sin factura que calce: quedan guardados en la sección Consumo CRM. */
+  crmSaved: Array<{ stripeChargeId: string; amount: number; paidAt: string; description?: string }>
   message: string
+}
+
+// ── Consumo CRM ─────────────────────────────────────────────────
+// Cargos de Stripe que no son mensualidades: rebilling del GoHighLevel que
+// Bakano provee. Se guardan aparte y se pueden reclasificar a una factura.
+
+export type CrmConsumptionSource = 'stripe_webhook' | 'stripe_import'
+
+export interface CrmConsumption {
+  _id: string
+  clientId: string
+  clientName: string
+  stripeCustomerId?: string
+  stripeChargeId: string
+  amount: number
+  currency: string
+  paidAt: string
+  description?: string
+  receiptUrl?: string
+  source: CrmConsumptionSource
+  createdAt: string
+}
+
+export interface CrmConsumptionTotals {
+  total: number
+  currentMonth: number
+  byClient: Array<{ clientId: string; clientName: string; total: number; count: number }>
+}
+
+export interface CrmConsumptionList extends PaginatedResult<CrmConsumption> {
+  totals: CrmConsumptionTotals
 }
 
 export interface WorkspaceImage {

@@ -88,6 +88,17 @@ const routes: Array<RouteRecordRaw> = [
         },
       },
       {
+        path: 'consumo-crm',
+        name: 'CrmConsumption',
+        component: () => import('@/views/CrmConsumptionView'),
+        meta: {
+          title: 'Consumo CRM',
+          icon: 'fa-solid fa-plug-circle-bolt',
+          requiresAuth: true,
+          roles: ['superadmin', 'admin'],
+        },
+      },
+      {
         path: 'banco',
         name: 'Bank',
         component: () => import('@/views/BankView'),
