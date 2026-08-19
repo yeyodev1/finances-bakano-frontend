@@ -327,6 +327,16 @@ const summary = computed(() => store.lastImport)
           </ul>
         </section>
 
+        <section v-if="summary.reconciled?.length" class="summary__crm">
+          <h4><i class="fa-solid fa-code-merge" aria-hidden="true" /> Conciliados con pagos manuales</h4>
+          <ul>
+            <li v-for="item in summary.reconciled" :key="item.stripeChargeId">
+              {{ formatMoney(item.amount) }} · {{ formatDateShort(item.paidAt) }}
+              <small>Ya estaba registrado a mano: se le añadió el cargo y el recibo de Stripe, sin duplicar.</small>
+            </li>
+          </ul>
+        </section>
+
         <section v-if="summary.crmSaved.length" class="summary__crm">
           <h4><i class="fa-solid fa-plug-circle-bolt" aria-hidden="true" /> Guardados como consumo CRM</h4>
           <ul>
