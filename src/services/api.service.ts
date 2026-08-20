@@ -36,6 +36,9 @@ import type {
   RevenuePoint,
   Sale,
   SaleBilling,
+  SaleGoal,
+  SaleGoalLine,
+  SaleGoalProgress,
   SaleItem,
   SaleLostReason,
   SaleSummary,
@@ -570,6 +573,27 @@ class ApiService extends APIBase {
   }
   async reopenSale(id: string) {
     const { data } = await this.post<Sale>(`sales/${id}/reopen`, {})
+    return data
+  }
+  /** Ubica la venta en un tipo de cliente; `null` la deja sin clasificar. */
+  async changeSaleCategory(id: string, categoryId: string | null) {
+    const { data } = await this.patch<Sale>(`sales/${id}/category`, { categoryId })
+    return data
+  }
+  // ── Objetivo de venta mensual ─────────────────────────────────
+  async saleGoal(period: string) {
+    const { data } = await this.get<SaleGoal>(`sales/goals/${period}`)
+    return data
+  }
+  async saveSaleGoal(
+    period: string,
+    payload: { lines: Array<Pick<SaleGoalLine, 'categoryId' | 'targetCount' | 'targetAmount' | 'notes'>>; notes?: string },
+  ) {
+    const { data } = await this.put<SaleGoal>(`sales/goals/${period}`, payload)
+    return data
+  }
+  async saleGoalProgress(period: string) {
+    const { data } = await this.get<SaleGoalProgress>(`sales/goals/${period}/progress`)
     return data
   }
   /** Pronóstico semanal: facturas + cuotas de ventas, y lo atrasado con antigüedad. */
