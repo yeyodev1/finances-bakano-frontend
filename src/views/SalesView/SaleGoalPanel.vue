@@ -14,6 +14,7 @@ import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
 import { apiErrorMessage, useClientsStore } from '@/stores/clients'
 import ClientTypeField from './ClientTypeField.vue'
+import SaleGoalChart from './SaleGoalChart.vue'
 import { useSalesStore } from '@/stores/sales'
 import { useUserStore } from '@/stores/user'
 import type { SaleGoalSaleRow } from '@/types'
@@ -40,16 +41,6 @@ async function load(period?: string) {
   } catch (error) {
     toast.error('No se pudo cargar el objetivo', apiErrorMessage(error))
   }
-}
-
-function pctWidth(pct: number): string {
-  return `${Math.min(pct, 100)}%`
-}
-
-function toneOf(pct: number): string {
-  if (pct >= 100) return 'ok'
-  if (pct >= 50) return 'mid'
-  return 'low'
 }
 
 // ── Ubicar ventas sin clasificar ──
@@ -183,35 +174,7 @@ async function saveGoal() {
     </div>
 
     <template v-else-if="goal">
-      <!-- Totales -->
-      <div v-if="goal.hasGoal" class="totals">
-        <div class="totals__bar" :class="`totals__bar--${toneOf(goal.totals.amountPct)}`">
-          <div class="totals__row">
-            <span class="totals__label">
-              <i class="fa-solid fa-sack-dollar" aria-hidden="true" /> Monto
-            </span>
-            <strong>{{ formatMoney(goal.totals.inGoalAmount) }}</strong>
-            <span class="totals__of">de {{ formatMoney(goal.totals.targetAmount) }}</span>
-            <span class="totals__pct">{{ goal.totals.amountPct }}%</span>
-          </div>
-          <div class="bar" role="progressbar" :aria-valuenow="goal.totals.amountPct" aria-valuemin="0" aria-valuemax="100">
-            <span class="bar__fill" :style="{ width: pctWidth(goal.totals.amountPct) }" />
-          </div>
-        </div>
-        <div class="totals__bar" :class="`totals__bar--${toneOf(goal.totals.countPct)}`">
-          <div class="totals__row">
-            <span class="totals__label">
-              <i class="fa-solid fa-users" aria-hidden="true" /> Clientes
-            </span>
-            <strong>{{ goal.totals.inGoalCount }}</strong>
-            <span class="totals__of">de {{ goal.totals.targetCount }}</span>
-            <span class="totals__pct">{{ goal.totals.countPct }}%</span>
-          </div>
-          <div class="bar" role="progressbar" :aria-valuenow="goal.totals.countPct" aria-valuemin="0" aria-valuemax="100">
-            <span class="bar__fill" :style="{ width: pctWidth(goal.totals.countPct) }" />
-          </div>
-        </div>
-      </div>
+      <SaleGoalChart v-if="goal.hasGoal" :goal="goal" />
 
       <p v-else class="goal__empty">
         <i class="fa-solid fa-circle-info" aria-hidden="true" />
@@ -225,6 +188,7 @@ async function saveGoal() {
       </p>
 
       <!-- Líneas por tipo de cliente -->
+      <h3 v-if="goal.lines.length" class="goal__h3"><i class="fa-solid fa-list" aria-hidden="true" /> Detalle por tipo: qué ventas suman</h3>
       <ul v-if="goal.lines.length" class="lines">
         <li v-for="line in goal.lines" :key="line.categoryId" class="line">
           <div class="line__head">
@@ -241,31 +205,7 @@ async function saveGoal() {
             </BaseBadge>
           </div>
 
-          <div class="line__metric">
-            <span class="line__figure"><strong>{{ line.soldCount }}</strong> / {{ line.targetCount }} clientes</span>
-            <div class="bar bar--sm" :class="`bar--${toneOf(line.countPct)}`">
-              <span class="bar__fill" :style="{ width: pctWidth(line.countPct) }" />
-            </div>
-          </div>
-          <div class="line__metric">
-            <span class="line__figure"><strong>{{ formatMoney(line.soldAmount) }}</strong> / {{ formatMoney(line.targetAmount) }}</span>
-            <div class="bar bar--sm" :class="`bar--${toneOf(line.amountPct)}`">
-              <span class="bar__fill" :style="{ width: pctWidth(line.amountPct) }" />
-            </div>
-          </div>
-
-          <p class="line__remaining">
-            <template v-if="line.remainingCount > 0 || line.remainingAmount > 0">
-              <i class="fa-solid fa-flag" aria-hidden="true" />
-              Faltan
-              <template v-if="line.remainingCount > 0">{{ line.remainingCount }} cliente(s)</template>
-              <template v-if="line.remainingCount > 0 && line.remainingAmount > 0"> · </template>
-              <template v-if="line.remainingAmount > 0">{{ formatMoney(line.remainingAmount) }}</template>
-            </template>
-            <template v-else>
-              <i class="fa-solid fa-trophy" aria-hidden="true" /> Meta alcanzada
-            </template>
-          </p>
+          <p class="line__figure"><strong>{{ line.soldCount }}</strong>/{{ line.targetCount }} clientes · <strong>{{ formatMoney(line.soldAmount) }}</strong> de {{ formatMoney(line.targetAmount) }}</p>
           <p v-if="line.notes" class="line__notes">{{ line.notes }}</p>
 
           <ul v-if="line.sales.length" class="line__sales">
@@ -499,63 +439,6 @@ async function saveGoal() {
 
 .goal__foot { font-size: $fs-xs; color: $text-secondary; }
 
-// ── Barras ──
-.bar {
-  position: relative;
-  height: 10px;
-  border-radius: $radius-full;
-  background: rgba($primary, 0.1);
-  overflow: hidden;
-
-  &--sm { height: 6px; }
-}
-
-.bar__fill {
-  display: block;
-  height: 100%;
-  border-radius: $radius-full;
-  background: $primary;
-  transition: width $transition-base;
-}
-
-.bar--ok .bar__fill,
-.totals__bar--ok .bar__fill { background: $alert-success; }
-.bar--mid .bar__fill,
-.totals__bar--mid .bar__fill { background: $alert-warning; }
-.bar--low .bar__fill,
-.totals__bar--low .bar__fill { background: $primary; }
-
-.totals {
-  @include flex(row, flex-start, stretch, $sp-3);
-  flex-wrap: wrap;
-}
-
-.totals__bar {
-  @include flex-col($sp-2);
-  flex: 1 1 260px;
-  min-width: 0;
-  padding: $sp-3 $sp-4;
-  border-radius: $radius-sm;
-  border: 1px solid $border-color;
-}
-
-.totals__row {
-  @include flex(row, flex-start, baseline, $sp-2);
-  flex-wrap: wrap;
-  font-size: $fs-xs;
-  color: $text-secondary;
-
-  strong { font-size: $fs-lg; font-weight: 800; color: $primary-dark; }
-}
-
-.totals__label {
-  @include flex(row, flex-start, center, $sp-1);
-  font-weight: 700;
-  i { color: $primary; }
-}
-
-.totals__pct { margin-left: auto; font-weight: 800; color: $primary-dark; }
-
 // ── Líneas ──
 .lines {
   @include flex(row, flex-start, stretch, $sp-3);
@@ -586,20 +469,10 @@ async function saveGoal() {
   i { color: $primary; }
 }
 
-.line__metric { @include flex-col(4px); }
-
 .line__figure {
   font-size: $fs-xs;
   color: $text-secondary;
   strong { color: $primary-dark; font-weight: 800; }
-}
-
-.line__remaining {
-  @include flex(row, flex-start, center, $sp-1);
-  font-size: $fs-xs;
-  font-weight: 700;
-  color: $alert-warning;
-  i { color: $alert-warning; }
 }
 
 .line__notes { font-size: $fs-xs; color: $text-secondary; font-style: italic; }
