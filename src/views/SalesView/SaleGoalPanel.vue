@@ -7,18 +7,19 @@ import {
   BaseInput,
   BaseModal,
   BaseMonthPicker,
-  BaseSelect,
   BaseSkeleton,
   BaseTextarea,
 } from '@/components/base'
 import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
-import { apiErrorMessage } from '@/stores/clients'
+import { apiErrorMessage, useClientsStore } from '@/stores/clients'
+import ClientTypeField from './ClientTypeField.vue'
 import { useSalesStore } from '@/stores/sales'
 import { useUserStore } from '@/stores/user'
-import type { SaleGoalSaleRow, SelectOption } from '@/types'
+import type { SaleGoalSaleRow } from '@/types'
 
 const store = useSalesStore()
+const clients = useClientsStore()
 const user = useUserStore()
 const toast = useToast()
 const { formatMoney, formatPeriod, formatDateShort } = useFormat()
@@ -41,28 +42,6 @@ async function load(period?: string) {
   }
 }
 
-const categoryOptions = computed<SelectOption[]>(() =>
-  (goal.value?.categories ?? []).map((c) => ({
-    value: c._id,
-    label: c.name,
-    icon: c.icon || 'fa-solid fa-tag',
-    color: c.color,
-  })),
-)
-
-/** Al ubicar una venta, primero los tipos que están en el objetivo: es donde suma. */
-const placeOptions = computed<SelectOption[]>(() => {
-  const inGoal = new Set((goal.value?.lines ?? []).map((l) => l.categoryId))
-  return [...categoryOptions.value].sort((a, b) => {
-    const ai = inGoal.has(String(a.value)) ? 0 : 1
-    const bi = inGoal.has(String(b.value)) ? 0 : 1
-    return ai - bi || a.label.localeCompare(b.label, 'es')
-  }).map((o) => ({
-    ...o,
-    description: inGoal.has(String(o.value)) ? 'Está en el objetivo' : 'Fuera del objetivo',
-  }))
-})
-
 function pctWidth(pct: number): string {
   return `${Math.min(pct, 100)}%`
 }
@@ -76,7 +55,7 @@ function toneOf(pct: number): string {
 // ── Ubicar ventas sin clasificar ──
 const placing = ref<string | null>(null)
 
-async function place(sale: SaleGoalSaleRow, categoryId: string | number | null) {
+async function place(sale: SaleGoalSaleRow, categoryId: string | null) {
   if (!categoryId) return
   placing.value = sale._id
   try {
@@ -124,25 +103,20 @@ function addLine() {
   draft.value.push({ categoryId: '', targetCount: 1, targetAmount: 0, notes: '' })
 }
 
+/** Ids usados en las demás líneas: un tipo solo puede estar una vez. */
+function usedExcept(index: number): string[] {
+  return draft.value.filter((l, i) => i !== index && l.categoryId).map((l) => l.categoryId)
+}
+
+function nameOf(id: string): string {
+  return clients.categories.find((c) => c._id === id)?.name ?? ''
+}
+
 function removeLine(index: number) {
   draft.value.splice(index, 1)
 }
 
-/** Cada tipo una sola vez: el que ya está en otra línea se oculta. */
-function optionsFor(index: number): SelectOption[] {
-  const used = new Set(draft.value.filter((_, i) => i !== index).map((l) => l.categoryId))
-  return categoryOptions.value.filter((o) => !used.has(String(o.value)))
-}
-
-function lineModel(index: number) {
-  return computed<string | number | null>({
-    get: () => draft.value[index]?.categoryId || null,
-    set: (value) => {
-      const line = draft.value[index]
-      if (line) line.categoryId = value ? String(value) : ''
-    },
-  })
-}
+const goalCategoryIds = computed(() => (goal.value?.lines ?? []).map((l) => l.categoryId))
 
 const draftValid = computed(
   () =>
@@ -349,16 +323,16 @@ async function saveGoal() {
                 <template v-if="sale.soldByName"> · vendió {{ sale.soldByName }}</template>
               </span>
             </div>
-            <BaseSelect
+            <ClientTypeField
               v-if="canEdit"
               :model-value="null"
-              :options="placeOptions"
+              label=""
               placeholder="¿Dónde va?"
-              icon="fa-solid fa-tag"
               size="sm"
-              searchable
+              :clearable="false"
+              :highlight="goalCategoryIds"
               :disabled="placing === sale._id"
-              @update:model-value="place(sale, $event as string | number | null)"
+              @update:model-value="place(sale, $event)"
             />
             <BaseBadge v-else variant="warning" icon="fa-solid fa-question" size="sm">Sin clasificar</BaseBadge>
           </li>
@@ -381,52 +355,71 @@ async function saveGoal() {
       size="lg"
     >
       <div class="editor">
-        <p v-if="!categoryOptions.length" class="goal__empty">
+        <p class="editor__intro">
           <i class="fa-solid fa-circle-info" aria-hidden="true" />
-          No hay tipos de cliente creados. Créalos en Clientes → Categorías y vuelve.
+          Una tarjeta por tipo de cliente. Si el tipo no existe, escríbelo con tus palabras y se
+          crea al instante.
         </p>
 
         <ul class="editor__lines">
-          <li v-for="(line, index) in draft" :key="index" class="editor__line">
-            <BaseSelect
-              v-model="lineModel(index).value"
-              :options="optionsFor(index)"
-              label="Tipo de cliente"
-              placeholder="Elige el tipo"
-              icon="fa-solid fa-tag"
-              searchable
+          <li v-for="(line, index) in draft" :key="index" class="eline">
+            <header class="eline__head">
+              <span class="eline__n">{{ index + 1 }}</span>
+              <span class="eline__title">{{ nameOf(line.categoryId) || 'Nuevo tipo de cliente' }}</span>
+              <BaseButton
+                variant="ghost"
+                size="sm"
+                icon="fa-solid fa-trash"
+                aria-label="Quitar este tipo del objetivo"
+                @click="removeLine(index)"
+              />
+            </header>
+
+            <ClientTypeField
+              :model-value="line.categoryId || null"
+              label="¿Qué tipo de cliente buscamos?"
+              placeholder="Elige de la lista o escribe uno nuevo"
+              :exclude="usedExcept(index)"
+              :clearable="false"
               required
+              @update:model-value="line.categoryId = $event ?? ''"
             />
+
+            <div class="eline__targets">
+              <BaseInput
+                v-model.number="line.targetCount"
+                type="number"
+                label="¿Cuántos clientes?"
+                :min="0"
+                hint="Cierres de este tipo en el mes"
+              />
+              <BaseCurrencyInput v-model="line.targetAmount" label="¿Cuánto en ventas?" hint="Total acordado que esperamos" />
+            </div>
+
             <BaseInput
-              v-model.number="line.targetCount"
-              type="number"
-              label="¿Cuántos?"
-              :min="0"
-            />
-            <BaseCurrencyInput v-model="line.targetAmount" label="¿Cuánto?" />
-            <BaseInput v-model="line.notes" label="Nota (opcional)" placeholder="Zona, prioridad…" />
-            <BaseButton
-              variant="ghost"
-              size="sm"
-              icon="fa-solid fa-trash"
-              aria-label="Quitar línea"
-              class="editor__remove"
-              @click="removeLine(index)"
+              v-model="line.notes"
+              label="Nota para el vendedor (opcional)"
+              placeholder="Zona, ticket mínimo, prioridad…"
             />
           </li>
         </ul>
 
         <div class="editor__foot">
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-plus" :disabled="!categoryOptions.length" @click="addLine">
-            Añadir tipo
+          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-plus" @click="addLine">
+            Añadir otro tipo
           </BaseButton>
           <span class="editor__totals">
-            Total: <strong>{{ draftTotals.count }}</strong> clientes ·
+            Meta total: <strong>{{ draftTotals.count }}</strong> clientes ·
             <strong>{{ formatMoney(draftTotals.amount) }}</strong>
           </span>
         </div>
 
-        <BaseTextarea v-model="draftNotes" label="Notas del objetivo" :rows="2" placeholder="De dónde salió la meta, condiciones…" />
+        <BaseTextarea
+          v-model="draftNotes"
+          label="Notas del objetivo"
+          :rows="2"
+          placeholder="De dónde salió la meta, condiciones, lo que dijo el vendedor…"
+        />
       </div>
 
       <template #footer>
@@ -671,20 +664,61 @@ async function saveGoal() {
 // ── Editor ──
 .editor { @include flex-col($sp-4); }
 
-.editor__lines { @include flex-col($sp-3); }
-
-.editor__line {
-  @include flex(row, flex-start, flex-end, $sp-3);
-  flex-wrap: wrap;
-  padding: $sp-3;
+.editor__intro {
+  @include flex(row, flex-start, flex-start, $sp-2);
+  padding: $sp-3 $sp-4;
   border-radius: $radius-sm;
-  border: 1px solid $border-color;
+  background: $alert-info-bg;
+  border: 1px solid rgba($alert-info, 0.25);
+  font-size: $fs-xs;
+  line-height: 1.55;
+  color: $text-secondary;
 
-  > * { flex: 1 1 160px; min-width: 0; }
-  > :first-child { flex: 2 1 220px; }
+  i { color: $alert-info; margin-top: 2px; }
 }
 
-.editor__remove { flex: none !important; }
+.editor__lines { @include flex-col($sp-3); }
+
+.eline {
+  @include flex-col($sp-3);
+  padding: $sp-4;
+  border-radius: $radius-md;
+  border: 1px solid $border-color;
+  background: $surface;
+}
+
+.eline__head {
+  @include flex(row, flex-start, center, $sp-2);
+  padding-bottom: $sp-2;
+  border-bottom: 1px dashed $border-color;
+}
+
+.eline__n {
+  @include flex-center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-full;
+  background: rgba($primary, 0.12);
+  color: $primary;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.eline__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 800;
+  color: $primary-dark;
+  @include truncate;
+}
+
+.eline__targets {
+  @include flex(row, flex-start, flex-start, $sp-3);
+  flex-wrap: wrap;
+
+  > * { flex: 1 1 180px; min-width: 0; }
+}
 
 .editor__foot {
   @include flex(row, space-between, center, $sp-3);
