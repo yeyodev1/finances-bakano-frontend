@@ -16,6 +16,7 @@ import { useSalesStore } from '@/stores/sales'
 import { useUsersStore } from '@/stores/users'
 import SaleItemsEditor from './SaleItemsEditor.vue'
 import SaleBillingFields from './SaleBillingFields.vue'
+import ClientTypeField from './ClientTypeField.vue'
 import { SALE_FREQUENCY_OPTIONS } from '@/config/saleOptions'
 import type { Sale, SaleBilling, SaleFrequency, SaleItem, SelectOption } from '@/types'
 
@@ -69,13 +70,6 @@ const clientOptions = computed<SelectOption[]>(() => [
   { value: '', label: 'Cliente nuevo (todavía no existe)', icon: 'fa-solid fa-star' },
   ...clients.pickerOptions,
 ])
-
-/** Tipo de cliente: es lo que cruza la venta con el objetivo del mes. */
-const categoryOptions = computed<SelectOption[]>(() =>
-  clients.categories
-    .filter((c) => c.isActive)
-    .map((c) => ({ value: c._id, label: c.name, icon: c.icon || 'fa-solid fa-tag', color: c.color })),
-)
 
 /** Línea del objetivo que corresponde al tipo elegido, para avisar cuánto falta. */
 const goalLine = computed(() =>
@@ -149,7 +143,6 @@ const model = <K extends keyof typeof form>(key: K) =>
 
 const frequencyModel = model('frequency')
 const soldByModel = model('soldBy')
-const categoryModel = model('categoryId')
 const ownerModel = model('ownerId')
 const clientModel = computed<string | number | null>({
   get: () => form.clientId || '',
@@ -265,18 +258,12 @@ async function submit() {
         />
       </div>
 
-      <div class="fields">
-        <BaseSelect
-          v-model="categoryModel"
-          :options="categoryOptions"
-          label="Tipo de cliente"
-          placeholder="¿Qué tipo de negocio es?"
-          icon="fa-solid fa-tag"
-          :hint="goalHint"
-          searchable
-          clearable
-        />
-      </div>
+      <ClientTypeField
+        :model-value="form.categoryId || null"
+        :hint="goalHint"
+        :highlight="(sales.goal?.lines ?? []).map((l) => l.categoryId)"
+        @update:model-value="form.categoryId = $event ?? ''"
+      />
 
       <SaleItemsEditor v-model="items" />
 

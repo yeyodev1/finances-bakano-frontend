@@ -22,6 +22,7 @@ import {
   lostReasonLabel,
 } from '@/config/saleOptions'
 import SaleBillingFields from './SaleBillingFields.vue'
+import ClientTypeField from './ClientTypeField.vue'
 import { SALE_FREQUENCY_LABELS, SALE_ITEM_KIND_LABELS, SALE_STATUS_LABELS } from '@/types'
 import type { BadgeVariant } from '@/components/base'
 import type { Sale, SaleBilling, SaleInstallment, SelectOption } from '@/types'
@@ -52,20 +53,6 @@ const userOptions = computed<SelectOption[]>(() =>
     .filter((u) => u.isActive)
     .map((u) => ({ value: u._id, label: u.name, description: u.email, image: u.photoUrl || null })),
 )
-
-const categoryOptions = computed<SelectOption[]>(() =>
-  clients.categories
-    .filter((c) => c.isActive || c._id === current.value?.categoryId)
-    .map((c) => ({ value: c._id, label: c.name, icon: c.icon || 'fa-solid fa-tag', color: c.color })),
-)
-
-const categoryModel = computed<string | number | null>({
-  get: () => current.value?.categoryId ?? null,
-  set: (value) => {
-    if (!current.value) return
-    void changeCategory(value ? String(value) : null)
-  },
-})
 
 async function changeCategory(categoryId: string | null) {
   const sale = current.value
@@ -262,15 +249,12 @@ function close() {
           icon="fa-solid fa-hand-holding-dollar"
           searchable
         />
-        <BaseSelect
-          v-model="categoryModel"
-          :options="categoryOptions"
-          label="Tipo de cliente"
+        <ClientTypeField
+          :model-value="current.categoryId ?? null"
           placeholder="Sin clasificar"
-          icon="fa-solid fa-tag"
           :hint="current.categoryId ? 'Suma al objetivo del mes de este tipo' : 'Sin tipo no suma al objetivo del mes'"
-          searchable
-          clearable
+          :disabled="sales.saving"
+          @update:model-value="changeCategory($event)"
         />
       </div>
 
