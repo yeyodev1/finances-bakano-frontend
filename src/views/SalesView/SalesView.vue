@@ -12,6 +12,7 @@ import {
 import SaleFormModal from './SaleFormModal.vue'
 import SaleDetailModal from './SaleDetailModal.vue'
 import SaleLoseModal from './SaleLoseModal.vue'
+import SaleGoalPanel from './SaleGoalPanel.vue'
 import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
 import { apiErrorMessage } from '@/stores/clients'
@@ -134,6 +135,8 @@ function daysToNext(sale: Sale): number | null {
         {{ store.summary.newSales.missingInvoice }} venta(s) piden factura y no tienen número.
       </span>
     </p>
+
+    <SaleGoalPanel />
 
     <section v-if="store.summary.byOwner.length" class="owners">
       <h2 class="owners__title">

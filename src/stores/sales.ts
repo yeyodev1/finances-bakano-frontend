@@ -4,6 +4,8 @@ import { apiErrorMessage } from './clients'
 import type {
   Sale,
   SaleBilling,
+  SaleGoalLine,
+  SaleGoalProgress,
   SaleItem,
   SaleLostReason,
   SaleStatus,
@@ -39,9 +41,18 @@ function emptySummary(): SaleSummary {
   }
 }
 
+function currentPeriod(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 interface SalesState {
   items: Sale[]
   summary: SaleSummary
+  /** Objetivo del mes elegido y su avance. */
+  goalPeriod: string
+  goal: SaleGoalProgress | null
+  goalLoading: boolean
   total: number
   page: number
   pages: number
@@ -55,6 +66,9 @@ export const useSalesStore = defineStore('sales', {
   state: (): SalesState => ({
     items: [],
     summary: emptySummary(),
+    goalPeriod: currentPeriod(),
+    goal: null,
+    goalLoading: false,
     total: 0,
     page: 1,
     pages: 1,
@@ -118,8 +132,47 @@ export const useSalesStore = defineStore('sales', {
       }
     },
 
+    async fetchGoal(period?: string) {
+      if (period) this.goalPeriod = period
+      this.goalLoading = true
+      try {
+        this.goal = await api.saleGoalProgress(this.goalPeriod)
+      } catch (error) {
+        this.error = apiErrorMessage(error, 'No se pudo cargar el objetivo del mes')
+        throw error
+      } finally {
+        this.goalLoading = false
+      }
+    },
+
+    async saveGoal(
+      lines: Array<Pick<SaleGoalLine, 'categoryId' | 'targetCount' | 'targetAmount' | 'notes'>>,
+      notes?: string,
+    ) {
+      this.saving = true
+      try {
+        await api.saveSaleGoal(this.goalPeriod, { lines, notes })
+        await this.fetchGoal()
+      } finally {
+        this.saving = false
+      }
+    },
+
+    /** Ubica la venta en un tipo y refresca el avance: es lo que la hace contar. */
+    async changeCategory(id: string, categoryId: string | null) {
+      this.saving = true
+      try {
+        const sale = await api.changeSaleCategory(id, categoryId)
+        this.replaceLocal(sale)
+        await this.fetchGoal().catch(() => undefined)
+        return sale
+      } finally {
+        this.saving = false
+      }
+    },
+
     async load() {
-      await Promise.all([this.fetch(1), this.fetchSummary()])
+      await Promise.all([this.fetch(1), this.fetchSummary(), this.fetchGoal().catch(() => undefined)])
     },
 
     /** Sustituye la venta en la lista tras cualquier mutación. */
@@ -134,7 +187,7 @@ export const useSalesStore = defineStore('sales', {
         const sale = await api.createSale(payload)
         this.items = [sale, ...this.items]
         this.total += 1
-        await this.fetchSummary()
+        await Promise.all([this.fetchSummary(), this.fetchGoal().catch(() => undefined)])
         return sale
       } finally {
         this.saving = false

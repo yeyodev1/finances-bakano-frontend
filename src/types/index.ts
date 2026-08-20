@@ -833,6 +833,9 @@ export interface Sale {
   _id: string
   businessName: string
   clientId?: string | null
+  /** Tipo de cliente: cruza la venta con el objetivo del mes. Sin él, "sin clasificar". */
+  categoryId?: string | null
+  categoryName?: string | null
   contactName?: string
   contactEmail?: string
   contactPhone?: string
@@ -873,6 +876,82 @@ export interface SaleSummary {
   }
   expectedTotal: number
   byOwner: Array<{ ownerName: string; pending: number; overdue: number; count: number }>
+}
+
+// ── Objetivo de venta mensual ───────────────────────────────────
+
+export interface SaleGoalLine {
+  categoryId: string
+  categoryName: string
+  targetCount: number
+  targetAmount: number
+  notes?: string
+}
+
+export interface SaleGoal {
+  _id?: string
+  period: string
+  lines: SaleGoalLine[]
+  notes?: string
+  updatedByName?: string
+  updatedAt?: string
+}
+
+export interface SaleGoalSaleRow {
+  _id: string
+  businessName: string
+  amount: number
+  status: SaleStatus
+  agreedAt: string
+  soldByName?: string
+  categoryId: string | null
+  categoryName: string | null
+}
+
+export interface SaleGoalLineProgress extends SaleGoalLine {
+  color?: string
+  icon?: string
+  soldCount: number
+  soldAmount: number
+  countPct: number
+  amountPct: number
+  remainingCount: number
+  remainingAmount: number
+  sales: SaleGoalSaleRow[]
+}
+
+export interface SaleGoalOutsideBucket {
+  categoryId: string
+  categoryName: string
+  color?: string
+  icon?: string
+  soldCount: number
+  soldAmount: number
+  sales: SaleGoalSaleRow[]
+}
+
+export interface SaleGoalProgress {
+  period: string
+  hasGoal: boolean
+  notes?: string
+  updatedByName?: string
+  updatedAt?: string
+  totals: {
+    targetCount: number
+    targetAmount: number
+    soldCount: number
+    soldAmount: number
+    inGoalCount: number
+    inGoalAmount: number
+    countPct: number
+    amountPct: number
+    unclassifiedCount: number
+    unclassifiedAmount: number
+  }
+  lines: SaleGoalLineProgress[]
+  outside: SaleGoalOutsideBucket[]
+  unclassified: SaleGoalSaleRow[]
+  categories: Array<{ _id: string; name: string; color?: string; icon?: string }>
 }
 
 export interface SelectOption {

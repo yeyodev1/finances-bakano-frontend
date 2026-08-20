@@ -10,7 +10,7 @@ import {
 } from '@/components/base'
 import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
-import { apiErrorMessage } from '@/stores/clients'
+import { apiErrorMessage, useClientsStore } from '@/stores/clients'
 import { useSalesStore } from '@/stores/sales'
 import { useUsersStore } from '@/stores/users'
 import {
@@ -31,6 +31,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean]; lose: [sale: S
 
 const sales = useSalesStore()
 const users = useUsersStore()
+const clients = useClientsStore()
 const toast = useToast()
 const { formatMoney, formatDateShort, formatDate, toISODate } = useFormat()
 
@@ -51,6 +52,34 @@ const userOptions = computed<SelectOption[]>(() =>
     .filter((u) => u.isActive)
     .map((u) => ({ value: u._id, label: u.name, description: u.email, image: u.photoUrl || null })),
 )
+
+const categoryOptions = computed<SelectOption[]>(() =>
+  clients.categories
+    .filter((c) => c.isActive || c._id === current.value?.categoryId)
+    .map((c) => ({ value: c._id, label: c.name, icon: c.icon || 'fa-solid fa-tag', color: c.color })),
+)
+
+const categoryModel = computed<string | number | null>({
+  get: () => current.value?.categoryId ?? null,
+  set: (value) => {
+    if (!current.value) return
+    void changeCategory(value ? String(value) : null)
+  },
+})
+
+async function changeCategory(categoryId: string | null) {
+  const sale = current.value
+  if (!sale || (sale.categoryId ?? null) === categoryId) return
+  try {
+    const updated = await sales.changeCategory(sale._id, categoryId)
+    toast.success(
+      'Tipo de cliente actualizado',
+      updated.categoryName ? `${updated.businessName} → ${updated.categoryName}` : 'Quedó sin clasificar',
+    )
+  } catch (error) {
+    toast.error('No se pudo cambiar el tipo', apiErrorMessage(error))
+  }
+}
 
 const ownerModel = computed<string | number | null>({
   get: () => current.value?.ownerId ?? null,
@@ -92,6 +121,7 @@ watch(
   () => props.modelValue,
   (open) => {
     if (!open) return
+    if (!clients.categories.length) clients.fetchCategories().catch(() => undefined)
     payingIndex.value = null
     movingIndex.value = null
     editingBilling.value = false
@@ -224,13 +254,25 @@ function close() {
         </ul>
       </section>
 
-      <BaseSelect
-        v-model="ownerModel"
-        :options="userOptions"
-        label="Responsable de cobrarla"
-        icon="fa-solid fa-hand-holding-dollar"
-        searchable
-      />
+      <div class="detail__fields">
+        <BaseSelect
+          v-model="ownerModel"
+          :options="userOptions"
+          label="Responsable de cobrarla"
+          icon="fa-solid fa-hand-holding-dollar"
+          searchable
+        />
+        <BaseSelect
+          v-model="categoryModel"
+          :options="categoryOptions"
+          label="Tipo de cliente"
+          placeholder="Sin clasificar"
+          icon="fa-solid fa-tag"
+          :hint="current.categoryId ? 'Suma al objetivo del mes de este tipo' : 'Sin tipo no suma al objetivo del mes'"
+          searchable
+          clearable
+        />
+      </div>
 
       <section class="detail__block">
         <div class="detail__title-row">
@@ -369,6 +411,16 @@ function close() {
 </template>
 
 <style scoped lang="scss">
+.detail__fields {
+  @include flex(row, flex-start, flex-start, $sp-3);
+  flex-wrap: wrap;
+
+  > * {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+}
+
 .detail {
   @include flex-col($sp-4);
 }

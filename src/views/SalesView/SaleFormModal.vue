@@ -31,6 +31,7 @@ const { formatMoney, formatDateShort, toISODate } = useFormat()
 const form = reactive({
   businessName: '',
   clientId: '' as string,
+  categoryId: '' as string,
   contactName: '',
   contactEmail: '',
   contactPhone: '',
@@ -68,6 +69,26 @@ const clientOptions = computed<SelectOption[]>(() => [
   { value: '', label: 'Cliente nuevo (todavía no existe)', icon: 'fa-solid fa-star' },
   ...clients.pickerOptions,
 ])
+
+/** Tipo de cliente: es lo que cruza la venta con el objetivo del mes. */
+const categoryOptions = computed<SelectOption[]>(() =>
+  clients.categories
+    .filter((c) => c.isActive)
+    .map((c) => ({ value: c._id, label: c.name, icon: c.icon || 'fa-solid fa-tag', color: c.color })),
+)
+
+/** Línea del objetivo que corresponde al tipo elegido, para avisar cuánto falta. */
+const goalLine = computed(() =>
+  form.categoryId ? sales.goal?.lines.find((l) => l.categoryId === form.categoryId) ?? null : null,
+)
+
+const goalHint = computed(() => {
+  if (!form.categoryId) return 'Sin tipo, la venta queda sin clasificar y no suma al objetivo'
+  if (!sales.goal?.hasGoal) return 'Este mes no tiene objetivo definido'
+  if (!goalLine.value) return 'Este tipo no está en el objetivo del mes: se verá aparte'
+  const l = goalLine.value
+  return `Objetivo: ${l.soldCount}/${l.targetCount} · ${formatMoney(l.soldAmount)} de ${formatMoney(l.targetAmount)}`
+})
 
 const isSingle = computed(() => form.frequency === 'unico')
 
@@ -128,6 +149,7 @@ const model = <K extends keyof typeof form>(key: K) =>
 
 const frequencyModel = model('frequency')
 const soldByModel = model('soldBy')
+const categoryModel = model('categoryId')
 const ownerModel = model('ownerId')
 const clientModel = computed<string | number | null>({
   get: () => form.clientId || '',
@@ -137,6 +159,8 @@ const clientModel = computed<string | number | null>({
     if (client) {
       form.businessName = client.name
       if (!form.amount) form.amount = Number(client.amount || 0)
+      // El tipo de la ficha del cliente manda si todavía no se eligió uno.
+      if (!form.categoryId && client.categoryId) form.categoryId = client.categoryId
     }
   },
 })
@@ -149,6 +173,7 @@ watch(
     Object.assign(form, {
       businessName: '',
       clientId: '',
+      categoryId: '',
       contactName: '',
       contactEmail: '',
       contactPhone: '',
@@ -164,6 +189,7 @@ watch(
     billing.value = { needsInvoice: false }
     if (!users.items.length) users.fetch().catch(() => undefined)
     clients.fetchPicker().catch(() => undefined)
+    if (!clients.categories.length) clients.fetchCategories().catch(() => undefined)
   },
 )
 
@@ -182,6 +208,7 @@ async function submit() {
     const sale = await sales.create({
       businessName: form.businessName.trim(),
       clientId: form.clientId || null,
+      categoryId: form.categoryId || null,
       contactName: form.contactName.trim() || undefined,
       contactEmail: form.contactEmail.trim() || undefined,
       contactPhone: form.contactPhone.trim() || undefined,
@@ -235,6 +262,19 @@ async function submit() {
           placeholder="Cómo se llama el negocio"
           :error="errors.businessName"
           required
+        />
+      </div>
+
+      <div class="fields">
+        <BaseSelect
+          v-model="categoryModel"
+          :options="categoryOptions"
+          label="Tipo de cliente"
+          placeholder="¿Qué tipo de negocio es?"
+          icon="fa-solid fa-tag"
+          :hint="goalHint"
+          searchable
+          clearable
         />
       </div>
 
