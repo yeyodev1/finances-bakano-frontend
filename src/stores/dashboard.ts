@@ -6,6 +6,7 @@ import type {
   BreakdownItem,
   ChurnReport,
   DashboardSummary,
+  DelinquencyReport,
   Invoice,
   RevenuePoint,
 } from '@/types'
@@ -26,6 +27,7 @@ export interface DashboardState {
   upcoming: Invoice[]
   overdue: Invoice[]
   churn: ChurnReport
+  delinquency: DelinquencyReport | null
   loading: boolean
   error: string | null
   lastLoadedAt: number | null
@@ -47,6 +49,7 @@ export const useDashboardStore = defineStore('dashboard', {
     upcoming: [],
     overdue: [],
     churn: emptyChurnReport(),
+    delinquency: null,
     loading: false,
     error: null,
     lastLoadedAt: null,
@@ -84,6 +87,7 @@ export const useDashboardStore = defineStore('dashboard', {
         api.upcoming(15),
         api.overdue(50),
         api.churnReport(),
+        api.delinquency(12),
       ])
 
       const [
@@ -96,6 +100,7 @@ export const useDashboardStore = defineStore('dashboard', {
         upcomingRes,
         overdueRes,
         churnRes,
+        delinquencyRes,
       ] = results
 
       this.summary = pick<DashboardSummary | null>(summaryRes, null)
@@ -107,6 +112,10 @@ export const useDashboardStore = defineStore('dashboard', {
       this.upcoming = pick<Invoice[]>(upcomingRes, [])
       this.overdue = pick<Invoice[]>(overdueRes, [])
       this.churn = pick<ChurnReport>(churnRes as PromiseSettledResult<ChurnReport>, emptyChurnReport())
+      this.delinquency = pick<DelinquencyReport | null>(
+        delinquencyRes as PromiseSettledResult<DelinquencyReport | null>,
+        null,
+      )
 
       const failed = results.filter((r) => r.status === 'rejected')
       if (failed.length === results.length) {

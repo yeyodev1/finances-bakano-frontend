@@ -3,14 +3,15 @@ import { computed } from 'vue'
 import { BaseSkeleton, BaseStatCard } from '@/components/base'
 import DashboardIdealKpi from './DashboardIdealKpi.vue'
 import { useFormat } from '@/composables/useFormat'
-import type { DashboardSummary } from '@/types'
+import type { DashboardSummary, DelinquencyReport } from '@/types'
 
 const props = withDefaults(
   defineProps<{
     summary?: DashboardSummary | null
+    delinquency?: DelinquencyReport | null
     loading?: boolean
   }>(),
-  { summary: null, loading: false },
+  { summary: null, delinquency: null, loading: false },
 )
 
 const { formatMoney } = useFormat()
@@ -126,6 +127,27 @@ const kpis = computed<Kpi[]>(() => {
       hint: 'Historial conservado',
     },
     ...accessKpis,
+    ...moraKpi.value,
+  ]
+})
+
+/** Mora promedio de los vencidos hoy. Sin vencidos, 0 y en verde. */
+const moraKpi = computed<Kpi[]>(() => {
+  const d = props.delinquency
+  if (!d) return []
+  const avg = d.current.avgDays
+  const label = avg === 1 ? '1 día' : `${Number.isInteger(avg) ? avg : avg.toFixed(1)} días`
+  return [
+    {
+      key: 'mora',
+      label: 'Mora promedio',
+      value: label,
+      icon: 'fa-solid fa-clock-rotate-left',
+      tone: !d.current.invoices ? 'success' : avg <= 3 ? 'success' : avg <= 10 ? 'warning' : 'danger',
+      hint: d.current.invoices
+        ? `${d.current.invoices} vencido(s) · costumbre ${d.historical.avgDays} días`
+        : `Nada vencido · costumbre ${d.historical.avgDays} días`,
+    },
   ]
 })
 </script>
