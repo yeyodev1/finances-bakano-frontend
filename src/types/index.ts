@@ -607,6 +607,46 @@ export interface BreakdownItem {
   amount: number
 }
 
+// ── Mora promedio ───────────────────────────────────────────────
+
+export interface DelinquencyClientRow {
+  clientId: string
+  clientName: string
+  invoices: number
+  avgDays: number
+  maxDays: number
+  lateCount: number
+  latePct: number
+  openOverdue: number
+  openOverdueAmount: number
+}
+
+export interface DelinquencyReport {
+  months: number
+  since: string
+  current: {
+    invoices: number
+    clients: number
+    amount: number
+    avgDays: number
+    medianDays: number
+    maxDays: number
+  }
+  historical: {
+    invoices: number
+    paidLate: number
+    paidOnTime: number
+    latePct: number
+    avgDays: number
+    avgDaysWhenLate: number
+    medianDays: number
+  }
+  perClientAvgDays: number
+  clientsWithDelay: number
+  clientsTotal: number
+  clients: DelinquencyClientRow[]
+}
+
 export interface AgingBucket {
   bucket: string
   count: number

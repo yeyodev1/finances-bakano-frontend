@@ -17,6 +17,7 @@ import type {
   ClientCategory,
   ClientStats,
   DashboardSummary,
+  DelinquencyReport,
   Guarantee,
   GuaranteeOutcome,
   GuaranteeSummary,
@@ -516,6 +517,11 @@ class ApiService extends APIBase {
   }
   async churnReport() {
     const { data } = await this.get<ChurnReport>('dashboard/churn')
+    return data
+  }
+  /** Mora promedio: vencidos hoy (foto) y cuánto tardan en pagar (costumbre). */
+  async delinquency(months = 12) {
+    const { data } = await this.get<DelinquencyReport>(`dashboard/delinquency${qs({ months })}`)
     return data
   }
 

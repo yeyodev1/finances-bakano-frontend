@@ -7,6 +7,7 @@ import DashboardCharts from './DashboardCharts.vue'
 import DashboardOverdueList from './DashboardOverdueList.vue'
 import DashboardUpcomingList from './DashboardUpcomingList.vue'
 import DashboardOverrideBand from './DashboardOverrideBand.vue'
+import DashboardDelinquency from './DashboardDelinquency.vue'
 import { useDashboardStore } from '@/stores/dashboard'
 
 const dashboard = useDashboardStore()
@@ -42,7 +43,16 @@ onMounted(() => {
     />
 
     <template v-else>
-      <DashboardKpis :summary="dashboard.summary" :loading="dashboard.loading" />
+      <DashboardKpis
+        :summary="dashboard.summary"
+        :delinquency="dashboard.delinquency"
+        :loading="dashboard.loading"
+      />
+
+      <DashboardDelinquency
+        :report="dashboard.delinquency"
+        :loading="dashboard.loading && !dashboard.lastLoadedAt"
+      />
 
       <DashboardCharts
         :revenue="dashboard.revenue"
