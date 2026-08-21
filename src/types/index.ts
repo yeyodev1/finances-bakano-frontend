@@ -924,6 +924,8 @@ export interface SaleGoalLine {
   categoryId: string
   categoryName: string
   targetCount: number
+  /** Ticket por cliente; la meta de la línea es targetCount × perClientAmount. */
+  perClientAmount: number
   targetAmount: number
   notes?: string
 }

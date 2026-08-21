@@ -593,7 +593,7 @@ class ApiService extends APIBase {
   }
   async saveSaleGoal(
     period: string,
-    payload: { lines: Array<Pick<SaleGoalLine, 'categoryId' | 'targetCount' | 'targetAmount' | 'notes'>>; notes?: string },
+    payload: { lines: Array<Pick<SaleGoalLine, 'categoryId' | 'targetCount' | 'perClientAmount' | 'notes'>>; notes?: string },
   ) {
     const { data } = await this.put<SaleGoal>(`sales/goals/${period}`, payload)
     return data

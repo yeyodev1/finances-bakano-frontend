@@ -67,8 +67,13 @@ async function place(sale: SaleGoalSaleRow, categoryId: string | null) {
 interface DraftLine {
   categoryId: string
   targetCount: number
-  targetAmount: number
+  /** Ticket por cliente: la meta de la línea sale de multiplicar. */
+  perClientAmount: number
   notes: string
+}
+
+function lineTotal(l: DraftLine): number {
+  return (Number(l.targetCount) || 0) * (Number(l.perClientAmount) || 0)
 }
 
 const editorOpen = ref(false)
@@ -79,11 +84,12 @@ function openEditor(prefillCategoryId?: string) {
   draft.value = (goal.value?.lines ?? []).map((l) => ({
     categoryId: l.categoryId,
     targetCount: l.targetCount,
-    targetAmount: l.targetAmount,
+    perClientAmount:
+      l.perClientAmount || (l.targetCount ? Math.round((l.targetAmount / l.targetCount) * 100) / 100 : 0),
     notes: l.notes ?? '',
   }))
   if (prefillCategoryId && !draft.value.some((l) => l.categoryId === prefillCategoryId)) {
-    draft.value.push({ categoryId: prefillCategoryId, targetCount: 1, targetAmount: 0, notes: '' })
+    draft.value.push({ categoryId: prefillCategoryId, targetCount: 1, perClientAmount: 0, notes: '' })
   }
   if (!draft.value.length) addLine()
   draftNotes.value = goal.value?.notes ?? ''
@@ -91,7 +97,7 @@ function openEditor(prefillCategoryId?: string) {
 }
 
 function addLine() {
-  draft.value.push({ categoryId: '', targetCount: 1, targetAmount: 0, notes: '' })
+  draft.value.push({ categoryId: '', targetCount: 1, perClientAmount: 0, notes: '' })
 }
 
 /** Ids usados en las demás líneas: un tipo solo puede estar una vez. */
@@ -113,18 +119,19 @@ const draftValid = computed(
   () =>
     draft.value.length > 0 &&
     draft.value.every(
-      (l) => l.categoryId && (Number(l.targetCount) > 0 || Number(l.targetAmount) > 0),
+      (l) => l.categoryId && Number(l.targetCount) > 0 && Number(l.perClientAmount) > 0,
     ),
 )
 
+/** Meta total = suma de (cuántos × cuánto por cliente) de cada línea. */
 const draftTotals = computed(() => ({
   count: draft.value.reduce((acc, l) => acc + (Number(l.targetCount) || 0), 0),
-  amount: draft.value.reduce((acc, l) => acc + (Number(l.targetAmount) || 0), 0),
+  amount: draft.value.reduce((acc, l) => acc + lineTotal(l), 0),
 }))
 
 async function saveGoal() {
   if (!draftValid.value) {
-    toast.warning('Revisa el objetivo', 'Cada línea necesita un tipo y cuántos o cuánto.')
+    toast.warning('Revisa el objetivo', 'Cada línea necesita un tipo, cuántos clientes y cuánto por cliente.')
     return
   }
   try {
@@ -132,7 +139,7 @@ async function saveGoal() {
       draft.value.map((l) => ({
         categoryId: l.categoryId,
         targetCount: Number(l.targetCount) || 0,
-        targetAmount: Number(l.targetAmount) || 0,
+        perClientAmount: Number(l.perClientAmount) || 0,
         notes: l.notes.trim() || undefined,
       })),
       draftNotes.value.trim() || undefined,
@@ -333,8 +340,19 @@ async function saveGoal() {
                 :min="0"
                 hint="Cierres de este tipo en el mes"
               />
-              <BaseCurrencyInput v-model="line.targetAmount" label="¿Cuánto en ventas?" hint="Total acordado que esperamos" />
+              <BaseCurrencyInput
+                v-model="line.perClientAmount"
+                label="¿Cuánto por cliente?"
+                hint="Mensualidad o ticket que se suele cerrar"
+              />
             </div>
+
+            <p class="eline__total">
+              <i class="fa-solid fa-equals" aria-hidden="true" />
+              Meta de esta línea:
+              <strong>{{ line.targetCount || 0 }}</strong> × <strong>{{ formatMoney(Number(line.perClientAmount) || 0) }}</strong>
+              = <strong class="eline__total-sum">{{ formatMoney(lineTotal(line)) }}</strong>
+            </p>
 
             <BaseInput
               v-model="line.notes"
@@ -349,7 +367,7 @@ async function saveGoal() {
             Añadir otro tipo
           </BaseButton>
           <span class="editor__totals">
-            Meta total: <strong>{{ draftTotals.count }}</strong> clientes ·
+            Meta total: <strong>{{ draftTotals.count }}</strong> clientes →
             <strong>{{ formatMoney(draftTotals.amount) }}</strong>
           </span>
         </div>
@@ -585,6 +603,21 @@ async function saveGoal() {
   color: $primary-dark;
   @include truncate;
 }
+
+.eline__total {
+  @include flex(row, flex-start, center, $sp-1);
+  flex-wrap: wrap;
+  padding: $sp-2 $sp-3;
+  border-radius: $radius-sm;
+  background: rgba($primary-light, 0.4);
+  font-size: $fs-xs;
+  color: $text-secondary;
+
+  i { color: $primary; }
+  strong { color: $primary-dark; font-weight: 800; }
+}
+
+.eline__total-sum { font-size: $fs-sm; }
 
 .eline__targets {
   @include flex(row, flex-start, flex-start, $sp-3);
