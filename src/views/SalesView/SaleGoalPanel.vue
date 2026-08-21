@@ -181,7 +181,7 @@ async function saveGoal() {
     </div>
 
     <template v-else-if="goal">
-      <SaleGoalChart v-if="goal.hasGoal" :goal="goal" />
+      <SaleGoalChart v-if="goal.hasGoal" :goal="goal" :recurring="store.summary.recurringMonthly" />
 
       <p v-else class="goal__empty">
         <i class="fa-solid fa-circle-info" aria-hidden="true" />
