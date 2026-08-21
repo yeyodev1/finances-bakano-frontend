@@ -591,6 +591,25 @@ export interface DashboardSummary {
   /** Lo que debería entrar cada mes si todos los clientes activos pagan. */
   idealMonthlyAmount: number
   archivedClients: number
+  /** Objetivo de ventas del mes, para leerlo junto al ideal. */
+  salesGoal?: {
+    hasGoal: boolean
+    targetAmount: number
+    soldAmount: number
+    targetCount: number
+    soldCount: number
+    amountPct: number
+    idealIfMet: number
+  } | null
+}
+
+/** Usuario del directorio: lo mínimo para elegir vendedor / cobrador. */
+export interface UserDirectoryItem {
+  _id: string
+  name: string
+  email: string
+  photoUrl?: string
+  role: UserRole
 }
 
 export interface RevenuePoint {

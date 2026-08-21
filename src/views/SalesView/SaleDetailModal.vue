@@ -48,11 +48,7 @@ const payDate = ref('')
 const movingIndex = ref<number | null>(null)
 const moveDate = ref('')
 
-const userOptions = computed<SelectOption[]>(() =>
-  users.items
-    .filter((u) => u.isActive)
-    .map((u) => ({ value: u._id, label: u.name, description: u.email, image: u.photoUrl || null })),
-)
+const userOptions = computed<SelectOption[]>(() => users.directoryOptions)
 
 async function changeCategory(categoryId: string | null) {
   const sale = current.value
@@ -112,7 +108,7 @@ watch(
     payingIndex.value = null
     movingIndex.value = null
     editingBilling.value = false
-    if (!users.items.length) users.fetch().catch(() => undefined)
+    users.fetchDirectory().catch(() => undefined)
   },
 )
 

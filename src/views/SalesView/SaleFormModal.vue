@@ -14,6 +14,7 @@ import { useFormat } from '@/composables/useFormat'
 import { apiErrorMessage, useClientsStore } from '@/stores/clients'
 import { useSalesStore } from '@/stores/sales'
 import { useUsersStore } from '@/stores/users'
+import { useUserStore } from '@/stores/user'
 import SaleItemsEditor from './SaleItemsEditor.vue'
 import SaleBillingFields from './SaleBillingFields.vue'
 import ClientTypeField from './ClientTypeField.vue'
@@ -25,6 +26,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean]; created: [sale
 
 const sales = useSalesStore()
 const users = useUsersStore()
+const me = useUserStore()
 const clients = useClientsStore()
 const toast = useToast()
 const { formatMoney, formatDateShort, toISODate } = useFormat()
@@ -60,11 +62,7 @@ const itemsValid = computed(
   () => !items.value.length || items.value.every((i) => i.concept.trim() && Number(i.amount) > 0),
 )
 
-const userOptions = computed<SelectOption[]>(() =>
-  users.items
-    .filter((u) => u.isActive)
-    .map((u) => ({ value: u._id, label: u.name, description: u.email, image: u.photoUrl || null })),
-)
+const userOptions = computed<SelectOption[]>(() => users.directoryOptions)
 
 const clientOptions = computed<SelectOption[]>(() => [
   { value: '', label: 'Cliente nuevo (todavía no existe)', icon: 'fa-solid fa-star' },
@@ -174,13 +172,14 @@ watch(
       frequency: 'unico' as SaleFrequency,
       installmentsCount: 1,
       firstChargeDate: toISODate(new Date()) || '',
-      soldBy: '',
-      ownerId: '',
+      // Quien registra suele ser quien vendió y quien cobra: se preselecciona y se cambia si no.
+      soldBy: me.user?._id ?? '',
+      ownerId: me.user?._id ?? '',
       notes: '',
     })
     items.value = []
     billing.value = { needsInvoice: false }
-    if (!users.items.length) users.fetch().catch(() => undefined)
+    users.fetchDirectory().catch(() => undefined)
     clients.fetchPicker().catch(() => undefined)
     if (!clients.categories.length) clients.fetchCategories().catch(() => undefined)
   },
@@ -247,6 +246,7 @@ async function submit() {
           label="¿Ya es cliente?"
           placeholder="Cliente nuevo"
           icon="fa-solid fa-user"
+          hint="Si ya existe en la plataforma, elígelo: la venta igual cuenta para el objetivo"
           searchable
         />
         <BaseInput
