@@ -146,7 +146,7 @@ export const useSalesStore = defineStore('sales', {
     },
 
     async saveGoal(
-      lines: Array<Pick<SaleGoalLine, 'categoryId' | 'targetCount' | 'targetAmount' | 'notes'>>,
+      lines: Array<Pick<SaleGoalLine, 'categoryId' | 'targetCount' | 'perClientAmount' | 'notes'>>,
       notes?: string,
     ) {
       this.saving = true
