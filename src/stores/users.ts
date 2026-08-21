@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import api from '@/services/api.service'
 import { apiErrorMessage } from './clients'
-import type { PaginatedResult, SelectOption, User, UserRole } from '@/types'
+import type { PaginatedResult, SelectOption, User, UserDirectoryItem, UserRole } from '@/types'
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   superadmin: 'Superadministrador',
@@ -29,6 +29,8 @@ export interface UserFilters {
 
 export interface UsersState {
   items: User[]
+  /** Directorio ligero (cualquier rol): para vendedor / cobrador. */
+  directory: UserDirectoryItem[]
   total: number
   loading: boolean
   saving: boolean
@@ -39,6 +41,7 @@ export interface UsersState {
 export const useUsersStore = defineStore('users', {
   state: (): UsersState => ({
     items: [],
+    directory: [],
     total: 0,
     loading: false,
     saving: false,
@@ -50,9 +53,22 @@ export const useUsersStore = defineStore('users', {
     isEmpty: (state): boolean => !state.loading && state.items.length === 0,
     activeCount: (state): number => state.items.filter((u) => u.isActive).length,
     notifiedCount: (state): number => state.items.filter((u) => u.receivesNotifications).length,
+
+    directoryOptions: (state): SelectOption[] =>
+      state.directory.map((u) => ({
+        value: u._id,
+        label: u.name,
+        description: u.email,
+        image: u.photoUrl || null,
+      })),
   },
 
   actions: {
+    async fetchDirectory() {
+      this.directory = await api.userDirectory()
+      return this.directory
+    },
+
     async fetch() {
       this.loading = true
       this.error = null

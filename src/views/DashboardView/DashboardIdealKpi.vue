@@ -21,6 +21,9 @@ const percent = computed(() => {
   return Math.min(Math.round((collected.value / ideal.value) * 100), 100)
 })
 
+const goal = computed(() => props.summary?.salesGoal ?? null)
+const goalPct = computed(() => Math.min(goal.value?.amountPct ?? 0, 100))
+
 const tone = computed(() => {
   if (percent.value >= 85) return 'ok'
   if (percent.value >= 50) return 'warn'
@@ -48,6 +51,25 @@ const tone = computed(() => {
           <span class="ideal__bar-fill" :class="`ideal__bar-fill--${tone}`" :style="{ width: `${percent}%` }" />
         </div>
 
+        <div v-if="goal?.hasGoal" class="goal-strip" aria-label="Objetivo de ventas del mes">
+          <div class="goal-strip__head">
+            <span class="goal-strip__label">
+              <i class="fa-solid fa-flag-checkered" aria-hidden="true" /> Objetivo de ventas del mes
+            </span>
+            <span class="goal-strip__nums">
+              <strong>{{ formatMoney(goal.soldAmount) }}</strong> de {{ formatMoney(goal.targetAmount) }}
+              · {{ goal.soldCount }}/{{ goal.targetCount }} clientes · <strong>{{ goal.amountPct }}%</strong>
+            </span>
+          </div>
+          <div class="ideal__bar" role="presentation">
+            <span class="ideal__bar-fill ideal__bar-fill--goal" :style="{ width: `${goalPct}%` }" />
+          </div>
+          <p class="goal-strip__if">
+            <i class="fa-solid fa-arrow-trend-up" aria-hidden="true" />
+            Si se cumple, el ideal mensual sube a <strong>{{ formatMoney(goal.idealIfMet) }}</strong>
+          </p>
+        </div>
+
         <footer class="ideal__foot">
           <div class="stat">
             <span class="stat__label">Cobrado este mes</span>
@@ -68,6 +90,35 @@ const tone = computed(() => {
 </template>
 
 <style scoped lang="scss">
+.goal-strip {
+  @include flex-col($sp-2);
+  padding-top: $sp-3;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.goal-strip__head {
+  @include flex(row, space-between, baseline, $sp-2);
+  flex-wrap: wrap;
+  font-size: $fs-xs;
+  opacity: 0.95;
+}
+
+.goal-strip__label {
+  @include flex(row, flex-start, center, $sp-1);
+  font-weight: 700;
+}
+
+.goal-strip__nums strong { font-weight: 800; }
+
+.goal-strip__if {
+  @include flex(row, flex-start, center, $sp-1);
+  font-size: $fs-xs;
+  opacity: 0.9;
+  strong { font-weight: 800; }
+}
+
+.ideal__bar-fill--goal { background: rgba(255, 255, 255, 0.9); }
+
 .ideal {
   width: 100%;
   margin-bottom: $sp-4;

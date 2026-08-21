@@ -44,6 +44,7 @@ import type {
   SaleLostReason,
   SaleSummary,
   User,
+  UserDirectoryItem,
   Workspace,
   WorkspaceSuggestion,
 } from '@/types'
@@ -92,6 +93,11 @@ class ApiService extends APIBase {
   async listUsers(params: Query = {}) {
     const { data } = await this.get<PaginatedResult<User>>(`users${qs(params)}`)
     return data
+  }
+  /** Usuarios activos para elegir vendedor / cobrador. Cualquier autenticado. */
+  async userDirectory() {
+    const { data } = await this.get<Wrapped<UserDirectoryItem>>('users/directory')
+    return data.items ?? []
   }
   async createUser(payload: Partial<User> & { password: string }) {
     const { data } = await this.post<User>('users', payload)
