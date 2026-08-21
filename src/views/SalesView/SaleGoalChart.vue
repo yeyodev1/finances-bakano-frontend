@@ -11,7 +11,7 @@ import type { SaleGoalProgress } from '@/types'
  *     si el relleno está a la izquierda de la línea, vamos atrasados.
  * Un solo tono; verde únicamente al cumplir, siempre con icono y texto.
  */
-const props = defineProps<{ goal: SaleGoalProgress }>()
+const props = defineProps<{ goal: SaleGoalProgress; recurring?: number }>()
 const { formatMoney, formatPeriod } = useFormat()
 
 const totals = computed(() => props.goal.totals)
@@ -28,6 +28,16 @@ const monthPace = computed(() => {
 })
 
 const pct = computed(() => Math.min(totals.value.amountPct, 100))
+
+/** Recurrente hoy → recurrente si se cumple la meta. */
+const projection = computed(() => {
+  const recurring = Number(props.recurring ?? 0)
+  return {
+    recurring,
+    now: recurring + totals.value.inGoalAmount,
+    ifMet: recurring + totals.value.targetAmount,
+  }
+})
 const done = computed(() => totals.value.amountPct >= 100 && totals.value.countPct >= 100)
 /** Atrasados si lo vendido va por debajo del ritmo del calendario (con 10 puntos de margen). */
 const behind = computed(() => !done.value && totals.value.amountPct + 10 < monthPace.value)
@@ -84,6 +94,25 @@ const bars = computed(() =>
         </span>
       </div>
     </div>
+
+    <ol v-if="recurring !== undefined" class="steps" aria-label="Proyección del recurrente">
+      <li class="step">
+        <span class="step__label"><i class="fa-solid fa-repeat" aria-hidden="true" /> Recurrente hoy</span>
+        <strong class="step__value">{{ formatMoney(projection.recurring) }}</strong>
+      </li>
+      <li class="step step__arrow" aria-hidden="true"><i class="fa-solid fa-plus" /></li>
+      <li class="step">
+        <span class="step__label"><i class="fa-solid fa-handshake" aria-hidden="true" /> Vendido del objetivo</span>
+        <strong class="step__value">{{ formatMoney(totals.inGoalAmount) }}</strong>
+        <span class="step__sub">= {{ formatMoney(projection.now) }} ya asegurado</span>
+      </li>
+      <li class="step step__arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right" /></li>
+      <li class="step step--target">
+        <span class="step__label"><i class="fa-solid fa-flag-checkered" aria-hidden="true" /> Proyectado con la meta</span>
+        <strong class="step__value">{{ formatMoney(projection.ifMet) }}</strong>
+        <span class="step__sub">recurrente + meta completa · faltan {{ formatMoney(Math.max(totals.targetAmount - totals.inGoalAmount, 0)) }}</span>
+      </li>
+    </ol>
 
     <ul v-if="bars.length" class="bars" aria-label="Avance por tipo de cliente">
       <li v-for="bar in bars" :key="bar.categoryId" class="bar">
@@ -206,6 +235,53 @@ const bars = computed(() =>
 }
 
 .hero__pace { font-weight: 500; color: $text-secondary; }
+
+// ── Proyección ──
+.steps {
+  @include flex(row, center, stretch, $sp-2);
+  flex-wrap: wrap;
+  padding: $sp-3;
+  border-radius: $radius-sm;
+  background: rgba($primary-light, 0.4);
+}
+
+.step {
+  @include flex-col(2px);
+  flex: 1 1 170px;
+  min-width: 0;
+  align-items: center;
+  text-align: center;
+  padding: $sp-2;
+  border-radius: $radius-sm;
+
+  &--target {
+    background: $surface;
+    border: 1px solid rgba($primary, 0.3);
+  }
+}
+
+.step__arrow {
+  flex: 0 0 auto;
+  justify-content: center;
+  color: $text-secondary;
+  font-size: $fs-sm;
+}
+
+.step__label {
+  @include flex(row, center, center, $sp-1);
+  font-size: $fs-xs;
+  font-weight: 700;
+  color: $text-secondary;
+  i { color: $primary; }
+}
+
+.step__value {
+  font-size: $fs-lg;
+  font-weight: 800;
+  color: $primary-dark;
+}
+
+.step__sub { font-size: $fs-xs; color: $text-secondary; }
 
 // ── Barras por tipo ──
 .bars { @include flex-col($sp-3); }

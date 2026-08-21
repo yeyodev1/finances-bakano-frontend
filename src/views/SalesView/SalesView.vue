@@ -44,6 +44,14 @@ const statusModel = computed<string | number | null>({
   },
 })
 
+/** Lo que facturaríamos al mes si se cumple la meta: recurrente de hoy + meta en mensualidades. */
+const projected = computed(
+  () => Number(store.summary.recurringMonthly || 0) + Number(store.goal?.totals.targetAmount || 0),
+)
+const goalRemaining = computed(() =>
+  Math.max(Number(store.goal?.totals.targetAmount || 0) - Number(store.goal?.totals.inGoalAmount || 0), 0),
+)
+
 async function load() {
   try {
     await store.load()
@@ -122,6 +130,14 @@ function daysToNext(sale: Sale): number | null {
         icon="fa-solid fa-circle-check"
         color="success"
         :hint="`${formatMoney(store.summary.newSales.lost)} perdido`"
+      />
+      <BaseStatCard
+        v-if="store.goal?.hasGoal"
+        label="Proyectado con la meta"
+        :value="formatMoney(projected)"
+        icon="fa-solid fa-flag-checkered"
+        color="primary"
+        :hint="`Recurrente + meta del mes · faltan ${formatMoney(goalRemaining)}`"
       />
     </div>
 
