@@ -50,6 +50,40 @@ const moveDate = ref('')
 
 const userOptions = computed<SelectOption[]>(() => users.directoryOptions)
 
+/** Cliente de la plataforma con el que está enlazada la venta (o ninguno). */
+const clientOptions = computed<SelectOption[]>(() => [
+  { value: '', label: 'Sin enlazar (todavía no es cliente)', icon: 'fa-solid fa-star' },
+  ...clients.pickerOptions,
+])
+
+const clientModel = computed<string | number | null>({
+  get: () => current.value?.clientId ?? '',
+  set: (value) => {
+    const next = value ? String(value) : null
+    if (current.value && (current.value.clientId ?? null) !== next) void linkClient(next)
+  },
+})
+
+const linkedClientName = computed(
+  () => clients.picker.find((c) => c._id === current.value?.clientId)?.name ?? null,
+)
+
+async function linkClient(clientId: string | null) {
+  const sale = current.value
+  if (!sale) return
+  try {
+    const updated = await sales.linkClient(sale._id, clientId)
+    toast.success(
+      clientId ? 'Venta enlazada al cliente' : 'Venta desenlazada',
+      clientId
+        ? `${updated.businessName} y su ficha de cliente ahora son lo mismo: no se cuenta dos veces.`
+        : 'Sus cuotas vuelven a contarse como venta nueva.',
+    )
+  } catch (error) {
+    toast.error('No se pudo enlazar', apiErrorMessage(error))
+  }
+}
+
 async function changeCategory(categoryId: string | null) {
   const sale = current.value
   if (!sale || (sale.categoryId ?? null) === categoryId) return
@@ -105,6 +139,7 @@ watch(
   (open) => {
     if (!open) return
     if (!clients.categories.length) clients.fetchCategories().catch(() => undefined)
+    clients.fetchPicker().catch(() => undefined)
     payingIndex.value = null
     movingIndex.value = null
     editingBilling.value = false
@@ -238,6 +273,17 @@ function close() {
       </section>
 
       <div class="detail__fields">
+        <BaseSelect
+          v-model="clientModel"
+          :options="clientOptions"
+          label="Cliente en la plataforma"
+          icon="fa-solid fa-user"
+          :hint="current.clientId
+            ? `Enlazada${linkedClientName ? ` a ${linkedClientName}` : ''}: sus cuotas no se suman doble con los cobros del cliente`
+            : 'Si ya está en Clientes, enlázala para que no aparezca dos veces'"
+          :disabled="sales.saving"
+          searchable
+        />
         <BaseSelect
           v-model="ownerModel"
           :options="userOptions"
