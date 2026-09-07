@@ -588,6 +588,12 @@ class ApiService extends APIBase {
     return data
   }
   /** Ubica la venta en un tipo de cliente; `null` la deja sin clasificar. */
+  /** Enlaza (o desenlaza con null) la venta con un cliente de la plataforma. */
+  async linkSaleClient(id: string, clientId: string | null) {
+    const { data } = await this.patch<Sale>(`sales/${id}/client`, { clientId })
+    return data
+  }
+
   async changeSaleCategory(id: string, categoryId: string | null) {
     const { data } = await this.patch<Sale>(`sales/${id}/category`, { categoryId })
     return data
