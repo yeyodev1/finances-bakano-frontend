@@ -25,7 +25,7 @@ const user = useUserStore()
 const toast = useToast()
 const { formatMoney, formatPeriod, formatDateShort } = useFormat()
 
-const canEdit = computed(() => user.role === 'admin' || user.role === 'superadmin')
+const canEdit = computed(() => user.isStaff)
 const goal = computed(() => store.goal)
 
 const periodModel = computed<string>({
