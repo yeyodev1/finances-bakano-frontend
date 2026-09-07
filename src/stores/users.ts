@@ -6,12 +6,14 @@ import type { PaginatedResult, SelectOption, User, UserDirectoryItem, UserRole }
 export const ROLE_LABELS: Record<UserRole, string> = {
   superadmin: 'Superadministrador',
   admin: 'Administrador',
+  vendedor: 'Vendedor',
   viewer: 'Solo lectura',
 }
 
 export const ROLE_ICONS: Record<UserRole, string> = {
   superadmin: 'fa-solid fa-user-shield',
   admin: 'fa-solid fa-user-gear',
+  vendedor: 'fa-solid fa-user-tie',
   viewer: 'fa-solid fa-user',
 }
 
