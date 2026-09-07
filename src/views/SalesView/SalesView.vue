@@ -122,7 +122,11 @@ function daysToNext(sale: Sale): number | null {
         :value="formatMoney(store.summary.newSales.pending)"
         icon="fa-solid fa-hourglass-half"
         color="warning"
-        :hint="`${formatMoney(store.summary.newSales.overdue)} ya vencido`"
+        :hint="`${formatMoney(store.summary.newSales.overdue)} ya vencido${
+          store.summary.newSales.coveredByClient
+            ? ` · ${formatMoney(store.summary.newSales.coveredByClient)} ya está en cobros de clientes`
+            : ''
+        }`"
       />
       <BaseStatCard
         label="Cobrado de ventas nuevas"
