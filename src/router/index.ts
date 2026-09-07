@@ -73,7 +73,7 @@ const routes: Array<RouteRecordRaw> = [
           title: 'Comprobantes',
           icon: 'fa-solid fa-file-circle-check',
           requiresAuth: true,
-          roles: ['superadmin', 'admin'],
+          roles: ['superadmin', 'admin', 'vendedor'],
         },
       },
       {
@@ -84,7 +84,7 @@ const routes: Array<RouteRecordRaw> = [
           title: 'Stripe',
           icon: 'fa-brands fa-stripe-s',
           requiresAuth: true,
-          roles: ['superadmin', 'admin'],
+          roles: ['superadmin', 'admin', 'vendedor'],
         },
       },
       {
@@ -95,13 +95,15 @@ const routes: Array<RouteRecordRaw> = [
           title: 'Consumo CRM',
           icon: 'fa-solid fa-plug-circle-bolt',
           requiresAuth: true,
-          roles: ['superadmin', 'admin'],
+          roles: ['superadmin', 'admin', 'vendedor'],
         },
       },
       {
         path: 'banco',
         name: 'Bank',
         component: () => import('@/views/BankView'),
+        // Banco: saldos y movimientos reales. Solo administración; el rol
+        // `vendedor` no lo ve en el menú ni puede entrar por URL (ver guard).
         meta: {
           title: 'Banco',
           icon: 'fa-solid fa-building-columns',
@@ -159,8 +161,28 @@ router.beforeEach((to, _from, next) => {
     return next({ path: '/', replace: true })
   }
 
+  // Las rutas con `roles` no solo se ocultan del menú: tampoco se entra por URL.
+  // El rol sale del usuario cacheado en localStorage; el backend vuelve a
+  // comprobarlo en cada petición, esto solo evita pantallas vacías con 403.
+  const allowed = to.matched.flatMap((record) => (record.meta?.roles as string[] | undefined) ?? [])
+  if (allowed.length) {
+    const role = readCachedRole()
+    if (!role || !allowed.includes(role)) {
+      return next({ path: '/', replace: true })
+    }
+  }
+
   next()
 })
+
+function readCachedRole(): string | null {
+  try {
+    const raw = localStorage.getItem('auth_user')
+    return raw ? ((JSON.parse(raw) as { role?: string }).role ?? null) : null
+  } catch {
+    return null
+  }
+}
 
 // Sonido al llegar a otra pantalla. `afterEach` y no `beforeEach`: solo suena si
 // la navegación de verdad ocurrió, no cuando un guard la redirige.
