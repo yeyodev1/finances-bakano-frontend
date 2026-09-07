@@ -47,7 +47,7 @@ const clients = useClientsStore()
 const user = useUserStore()
 const toast = useToast()
 
-const canCreate = computed(() => user.role === 'admin' || user.role === 'superadmin')
+const canCreate = computed(() => user.isStaff)
 const writing = ref(false)
 const newName = ref('')
 const saving = ref(false)
