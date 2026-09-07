@@ -43,9 +43,9 @@ export const PAYMENT_METHOD_OPTIONS: SelectOption[] = (
 }))
 
 export const BILLING_TYPE_LABELS: Record<BillingType, string> = {
-  monthly: 'Mensual',
-  no_charge: 'Sin cobro',
-  special: 'Especial',
+  monthly: 'Cada mes',
+  no_charge: 'No paga',
+  special: 'Pago único / a convenir',
 }
 
 export const BILLING_TYPE_OPTIONS: SelectOption[] = (
@@ -53,7 +53,8 @@ export const BILLING_TYPE_OPTIONS: SelectOption[] = (
 ).map((value) => ({
   value,
   label: BILLING_TYPE_LABELS[value],
-  icon: value === 'monthly' ? 'fa-solid fa-calendar-days' : 'fa-solid fa-star',
+  icon:
+    value === 'monthly' ? 'fa-solid fa-calendar-days' : value === 'no_charge' ? 'fa-solid fa-ban' : 'fa-solid fa-star',
 }))
 
 /** `false` = solo activos (por defecto), `true` = solo archivados, `'all'` = todos. */
