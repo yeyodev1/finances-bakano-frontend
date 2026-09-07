@@ -35,6 +35,7 @@ function emptySummary(): SaleSummary {
       recurringSold: 0,
       oneOffSold: 0,
       missingInvoice: 0,
+      coveredByClient: 0,
     },
     expectedTotal: 0,
     byOwner: [],
@@ -238,6 +239,19 @@ export const useSalesStore = defineStore('sales', {
       this.saving = true
       try {
         const sale = await api.updateSaleBilling(id, payload)
+        this.replaceLocal(sale)
+        await this.fetchSummary()
+        return sale
+      } finally {
+        this.saving = false
+      }
+    },
+
+    /** Enlaza la venta con un cliente: sus cuotas dejan de contarse doble con los cobros. */
+    async linkClient(id: string, clientId: string | null) {
+      this.saving = true
+      try {
+        const sale = await api.linkSaleClient(id, clientId)
         this.replaceLocal(sale)
         await this.fetchSummary()
         return sale
