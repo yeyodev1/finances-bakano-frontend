@@ -1,4 +1,5 @@
-export type UserRole = 'superadmin' | 'admin' | 'viewer'
+/** `vendedor`: equipo comercial. Opera ventas y clientes como un admin, pero no ve el Banco. */
+export type UserRole = 'superadmin' | 'admin' | 'vendedor' | 'viewer'
 
 export type PaymentMethod =
   | 'transferencia'
@@ -932,6 +933,8 @@ export interface SaleSummary {
     recurringSold: number
     oneOffSold: number
     missingInvoice: number
+    /** Pendiente de ventas enlazadas a un cliente que ya tiene el cobro del mes: no se duplica. */
+    coveredByClient?: number
   }
   expectedTotal: number
   byOwner: Array<{ ownerName: string; pending: number; overdue: number; count: number }>
