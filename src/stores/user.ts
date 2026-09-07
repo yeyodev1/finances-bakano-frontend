@@ -72,6 +72,9 @@ export const useUserStore = defineStore('user', {
   getters: {
     isAuthenticated: (state): boolean => !!state.token,
     isSuperadmin: (state): boolean => state.user?.role === 'superadmin',
+    /** Puede registrar ventas, clientes y cobros: administración y equipo comercial. */
+    isStaff: (state): boolean =>
+      state.user?.role === 'superadmin' || state.user?.role === 'admin' || state.user?.role === 'vendedor',
     role: (state): string | null => state.user?.role ?? null,
     displayName: (state): string => state.user?.name || state.user?.email || 'Usuario',
     initials(state): string {
