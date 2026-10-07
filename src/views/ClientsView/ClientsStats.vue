@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { BaseSkeleton, BaseStatCard } from '@/components/base'
 import { useFormat } from '@/composables/useFormat'
 import { useClientsStore } from '@/stores/clients'
+import { currentPeriod } from '@/stores/invoices'
+import { usePeriodSummary } from '@/composables/usePeriodSummary'
 
 const store = useClientsStore()
-const { formatMoney } = useFormat()
+const { formatMoney, formatPeriod } = useFormat()
+
+// Del ideal, cuánto ya entró este mes y cuánto falta por cobrar.
+const period = ref(currentPeriod())
+const { summary } = usePeriodSummary(period)
 
 const ideal = computed(() => store.stats.idealMonthlyAmount || store.stats.expectedMonthlyAmount)
 
@@ -17,6 +23,29 @@ const cards = computed(() => [
     icon: 'fa-solid fa-bullseye',
     color: 'primary',
     hint: 'Si todos los clientes activos pagan',
+    wide: true,
+  },
+  {
+    key: 'collected',
+    label: 'Cobrado este mes',
+    value: formatMoney(summary.value?.collectedAmount ?? 0),
+    icon: 'fa-solid fa-circle-check',
+    color: 'success',
+    hint: summary.value
+      ? `${summary.value.paid} de ${summary.value.total} cobros · ${formatPeriod(period.value)}`
+      : formatPeriod(period.value),
+    wide: true,
+  },
+  {
+    key: 'pending',
+    label: 'Por cobrar este mes',
+    value: formatMoney(summary.value?.pendingAmount ?? 0),
+    icon: 'fa-solid fa-hourglass-half',
+    color: 'warning',
+    hint: summary.value?.overdue
+      ? `${summary.value.pending + summary.value.overdue} abiertos · ${summary.value.overdue} vencidos`
+      : `${summary.value ? summary.value.pending : 0} cobros abiertos`,
+    wide: true,
   },
   {
     key: 'total',
@@ -56,7 +85,12 @@ const cards = computed(() => [
 <template>
   <section class="stats">
     <template v-if="store.loading && !store.stats.totalClients">
-      <BaseSkeleton v-for="n in 5" :key="n" height="104px" />
+      <BaseSkeleton
+        v-for="n in 7"
+        :key="n"
+        height="104px"
+        :class="n <= 3 ? 'stats__wide' : 'stats__narrow'"
+      />
     </template>
 
     <TransitionGroup v-else name="fade-slide">
@@ -68,6 +102,7 @@ const cards = computed(() => [
         :icon="card.icon"
         :color="card.color"
         :hint="card.hint"
+        :class="card.wide ? 'stats__wide' : 'stats__narrow'"
       />
     </TransitionGroup>
   </section>
@@ -80,8 +115,17 @@ const cards = computed(() => [
   gap: $sp-3;
 
   @include lg {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    // Fila 1: montos (ideal, cobrado, por cobrar). Fila 2: conteos.
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: $sp-4;
+
+    .stats__wide {
+      grid-column: span 4;
+    }
+
+    .stats__narrow {
+      grid-column: span 3;
+    }
   }
 
   :deep(> span) {
