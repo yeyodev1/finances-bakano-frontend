@@ -12,6 +12,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useFormat } from '@/composables/useFormat'
 import { PAYMENT_METHOD_LABELS, apiErrorMessage } from '@/stores/clients'
 import { usePaymentsStore } from '@/stores/payments'
+import { currentPeriod } from '@/stores/invoices'
+import { usePeriodSummary } from '@/composables/usePeriodSummary'
 import type { Payment } from '@/types'
 
 const store = usePaymentsStore()
@@ -20,6 +22,25 @@ const { confirm } = useConfirm()
 const { formatMoney, formatDateShort, formatPeriod } = useFormat()
 
 const total = computed(() => store.filteredAmount)
+
+// Cobrado vs por cobrar del período filtrado (o del mes en curso si no hay).
+const summaryPeriod = computed(() => store.filters.period || currentPeriod())
+const { summary, reload: reloadSummary } = usePeriodSummary(summaryPeriod)
+
+const collectedHint = computed(() => {
+  const s = summary.value
+  if (!s) return formatPeriod(summaryPeriod.value)
+  return `${formatPeriod(summaryPeriod.value)} · ${s.paid} de ${s.total} cobros pagados`
+})
+
+const pendingHint = computed(() => {
+  const s = summary.value
+  if (!s) return formatPeriod(summaryPeriod.value)
+  const open = s.pending + s.overdue
+  return s.overdue
+    ? `${open} abiertos · ${s.overdue} vencidos`
+    : `${open} ${open === 1 ? 'cobro abierto' : 'cobros abiertos'}`
+})
 
 async function load() {
   try {
@@ -45,7 +66,7 @@ function onPicked(invoice: Invoice) {
 async function onRegistered() {
   // El toast de éxito ya lo emite PaymentModal.
   target.value = null
-  await load()
+  await Promise.all([load(), reloadSummary()])
 }
 
 // Previsualización del comprobante sin salir del listado.
@@ -68,6 +89,7 @@ async function remove(payment: Payment) {
 
   try {
     await store.remove(payment._id)
+    reloadSummary()
     toast.success('Pago eliminado', 'El estado del cobro se revirtió.')
   } catch (error) {
     toast.error('No se pudo eliminar el pago', apiErrorMessage(error))
@@ -135,18 +157,25 @@ function exportCsv() {
 
     <div class="payments__stats">
       <BaseStatCard
-        label="Total del filtro"
-        :value="formatMoney(total)"
-        icon="fa-solid fa-coins"
+        label="Cobrado"
+        :value="formatMoney(summary?.collectedAmount ?? 0)"
+        icon="fa-solid fa-circle-check"
         color="success"
-        :hint="`${store.items.length} pagos listados`"
+        :hint="collectedHint"
+      />
+      <BaseStatCard
+        label="Por cobrar"
+        :value="formatMoney(summary?.pendingAmount ?? 0)"
+        icon="fa-solid fa-hourglass-half"
+        color="warning"
+        :hint="pendingHint"
       />
       <BaseStatCard
         label="Pagos registrados"
         :value="String(store.total)"
         icon="fa-solid fa-list-check"
         color="primary"
-        hint="Coincidencias en el servidor"
+        :hint="`${formatMoney(total)} en ${store.items.length} pagos listados`"
       />
     </div>
 
@@ -159,7 +188,7 @@ function exportCsv() {
       @preview="preview"
     />
 
-    <InvoicePickerModal v-model="pickerOpen" @picked="onPicked" @settled="load" />
+    <InvoicePickerModal v-model="pickerOpen" @picked="onPicked" @settled="onRegistered" />
     <PaymentModal v-model="payOpen" :invoice="target" @registered="onRegistered" />
     <ReceiptPreviewModal v-model="previewOpen" :payment="previewed" />
   </div>
@@ -204,7 +233,7 @@ function exportCsv() {
   gap: $sp-3;
 
   @include md {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>
