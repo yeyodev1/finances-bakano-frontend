@@ -18,6 +18,7 @@ const form = reactive({
   role: 'admin' as UserRole,
   password: '',
   receivesNotifications: true,
+  canDelete: false,
 })
 
 const errors = reactive<Record<string, string>>({})
@@ -35,6 +36,7 @@ watch(
     form.role = user?.role || 'admin'
     form.password = ''
     form.receivesNotifications = user?.receivesNotifications ?? true
+    form.canDelete = user?.canDelete ?? false
   },
   { immediate: true },
 )
@@ -63,6 +65,7 @@ async function submit() {
         email: form.email.trim(),
         role: form.role,
         receivesNotifications: form.receivesNotifications,
+        canDelete: form.canDelete,
         ...(form.password ? { password: form.password } : {}),
       })
       toast.success('Usuario actualizado', form.name.trim())
@@ -72,6 +75,7 @@ async function submit() {
         email: form.email.trim(),
         role: form.role,
         receivesNotifications: form.receivesNotifications,
+        canDelete: form.canDelete,
         password: form.password,
       })
       toast.success('Usuario creado', form.name.trim())
@@ -106,6 +110,11 @@ async function submit() {
         v-model="form.receivesNotifications"
         label="Recibe notificaciones"
         description="Se incluirá en los correos automáticos de cobros y pagos."
+      />
+      <BaseSwitch
+        v-model="form.canDelete"
+        label="Puede eliminar"
+        description="Podrá borrar pagos, reembolsos, consumos y clientes sin pagos (útil para duplicados). Cada borrado queda en la bitácora con su nombre."
       />
     </form>
 

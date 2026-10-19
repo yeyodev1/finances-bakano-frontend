@@ -6,7 +6,7 @@ import { useFormat } from '@/composables/useFormat'
 import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
 import type { Payment } from '@/types'
 
-const props = defineProps<{ items: Payment[]; loading: boolean }>()
+const props = defineProps<{ items: Payment[]; loading: boolean; canDelete?: boolean }>()
 const emit = defineEmits<{ remove: [payment: Payment]; preview: [payment: Payment] }>()
 
 /** En el listado `clientId` llega crudo; poblado solo en el detalle. */
@@ -71,7 +71,7 @@ const rows = computed(() => props.items)
             <i class="fa-solid fa-eye" aria-hidden="true" /> Ver comprobante
           </button>
           <span v-else class="muted">Sin comprobante</span>
-          <button type="button" class="danger" @click="emit('remove', payment)">
+          <button v-if="canDelete" type="button" class="danger" @click="emit('remove', payment)">
             <i class="fa-solid fa-trash" aria-hidden="true" /> Eliminar
           </button>
         </footer>
@@ -122,7 +122,7 @@ const rows = computed(() => props.items)
       </template>
 
       <template #cell-actions="{ row }">
-        <button type="button" class="icon-danger" title="Eliminar pago" @click="emit('remove', row as Payment)">
+        <button v-if="canDelete" type="button" class="icon-danger" title="Eliminar pago" @click="emit('remove', row as Payment)">
           <i class="fa-solid fa-trash" aria-hidden="true" />
         </button>
       </template>

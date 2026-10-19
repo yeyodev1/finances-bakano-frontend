@@ -66,6 +66,9 @@ const rows = computed(() => props.items)
             <i class="fa-solid fa-envelope" aria-hidden="true" />
             {{ user.receivesNotifications ? 'Recibe notificaciones' : 'Sin notificaciones' }}
           </li>
+          <li v-if="user.canDelete && user.role !== 'superadmin'">
+            <i class="fa-solid fa-trash-can" aria-hidden="true" /> Puede eliminar
+          </li>
           <li><i class="fa-solid fa-clock" aria-hidden="true" /> {{ formatDateTime(user.lastLoginAt) }}</li>
         </ul>
 
@@ -100,6 +103,14 @@ const rows = computed(() => props.items)
       <template #cell-role="{ row }">
         <BaseBadge variant="info" :icon="ROLE_ICONS[(row as User).role]">
           {{ ROLE_LABELS[(row as User).role] }}
+        </BaseBadge>
+        <BaseBadge
+          v-if="(row as User).canDelete && (row as User).role !== 'superadmin'"
+          variant="warning"
+          icon="fa-solid fa-trash-can"
+          title="Puede eliminar registros; cada borrado queda en la bitácora"
+        >
+          Puede eliminar
         </BaseBadge>
       </template>
 

@@ -25,7 +25,7 @@ const workspaceOpen = ref(false)
 const archiveOpen = ref(false)
 const selected = ref<Client | null>(null)
 
-const canPurge = computed(() => userStore.isSuperadmin)
+const canPurge = computed(() => userStore.canDelete)
 
 async function load() {
   try {
@@ -111,12 +111,12 @@ async function reactivate(client: Client) {
   }
 }
 
-/** Borrado real: solo superadmin, doble confirmación y solo si nunca tuvo pagos. */
+/** Borrado real: solo con permiso de eliminar, doble confirmación y solo si nunca tuvo pagos. */
 async function purge(client: Client) {
   const first = await confirm({
     title: 'Borrar cliente definitivamente',
     message:
-      'Esto NO es dar de baja. El registro se elimina de la base de datos y solo funciona si el cliente nunca tuvo pagos registrados. Si tuvo pagos, el borrado será rechazado.',
+      'Esto NO es dar de baja. El registro se elimina de la base de datos y solo funciona si el cliente nunca tuvo pagos registrados. Si tuvo pagos, el borrado será rechazado. El borrado queda registrado en la bitácora con tu nombre.',
     confirmLabel: 'Entiendo, continuar',
     variant: 'danger',
     icon: 'fa-solid fa-triangle-exclamation',

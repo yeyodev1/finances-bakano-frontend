@@ -78,7 +78,7 @@ function onClose(row: Guarantee) {
 async function onRemoveRefund(row: Refund) {
   const ok = await confirm({
     title: 'Eliminar el reembolso',
-    message: `Se borrará la devolución de ${formatMoney(row.amount)} a ${row.clientName} y el cobro volverá a contarse completo. La baja del cliente, si la hubo, no se revierte.`,
+    message: `Se borrará la devolución de ${formatMoney(row.amount)} a ${row.clientName} y el cobro volverá a contarse completo. La baja del cliente, si la hubo, no se revierte. El borrado queda registrado en la bitácora con tu nombre.`,
     confirmText: 'Eliminar',
     variant: 'danger',
   })
@@ -182,7 +182,7 @@ async function reload() {
         v-else
         :rows="store.refunds"
         :loading="store.loading"
-        :can-delete="user.isSuperadmin"
+        :can-delete="user.canDelete"
         @remove="onRemoveRefund"
       />
     </template>

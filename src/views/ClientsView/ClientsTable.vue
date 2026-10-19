@@ -206,7 +206,7 @@ function collectionText(client: Client): string {
             v-if="canPurge"
             type="button"
             class="danger"
-            title="Borrar definitivamente (solo superadmin)"
+            title="Borrar definitivamente (queda en bitácora)"
             @click="emit('purge', row as Client)"
           >
             <i class="fa-solid fa-trash" aria-hidden="true" />

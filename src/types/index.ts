@@ -23,6 +23,8 @@ export interface User {
   photoUrl?: string
   lastLoginAt?: string
   receivesNotifications: boolean
+  /** Puede eliminar registros (pagos, reembolsos, consumos, clientes sin pagos). Lo activa un superadmin. */
+  canDelete?: boolean
   createdAt: string
   updatedAt: string
 }

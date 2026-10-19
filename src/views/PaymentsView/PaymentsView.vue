@@ -12,11 +12,13 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useFormat } from '@/composables/useFormat'
 import { PAYMENT_METHOD_LABELS, apiErrorMessage } from '@/stores/clients'
 import { usePaymentsStore } from '@/stores/payments'
+import { useUserStore } from '@/stores/user'
 import { currentPeriod } from '@/stores/invoices'
 import { usePeriodSummary } from '@/composables/usePeriodSummary'
 import type { Payment } from '@/types'
 
 const store = usePaymentsStore()
+const user = useUserStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 const { formatMoney, formatDateShort, formatPeriod } = useFormat()
@@ -81,7 +83,7 @@ function preview(payment: Payment) {
 async function remove(payment: Payment) {
   const ok = await confirm({
     title: 'Eliminar pago',
-    message: `Se eliminará el pago de ${formatMoney(payment.amount)} de ${payment.clientName}. El cobro asociado volverá a quedar pendiente o vencido.`,
+    message: `Se eliminará el pago de ${formatMoney(payment.amount)} de ${payment.clientName}. El cobro asociado volverá a quedar pendiente o vencido. El borrado queda registrado en la bitácora con tu nombre.`,
     confirmLabel: 'Eliminar pago',
     variant: 'danger',
   })
@@ -184,6 +186,7 @@ function exportCsv() {
     <PaymentsTable
       :items="store.items"
       :loading="store.loading"
+      :can-delete="user.canDelete"
       @remove="remove"
       @preview="preview"
     />

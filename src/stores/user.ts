@@ -72,6 +72,9 @@ export const useUserStore = defineStore('user', {
   getters: {
     isAuthenticated: (state): boolean => !!state.token,
     isSuperadmin: (state): boolean => state.user?.role === 'superadmin',
+    /** Puede eliminar registros: superadmin siempre; los demás solo con el permiso activado. El backend lo vuelve a verificar. */
+    canDelete: (state): boolean =>
+      state.user?.role === 'superadmin' || state.user?.canDelete === true,
     /** Puede registrar ventas, clientes y cobros: administración y equipo comercial. */
     isStaff: (state): boolean =>
       state.user?.role === 'superadmin' || state.user?.role === 'admin' || state.user?.role === 'vendedor',

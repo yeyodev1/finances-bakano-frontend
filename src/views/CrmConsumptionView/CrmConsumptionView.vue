@@ -118,7 +118,7 @@ async function onPicked(invoice: Invoice) {
 async function onRemove(item: CrmConsumption) {
   const ok = await confirm({
     title: 'Eliminar consumo',
-    message: `Se borra el registro de ${formatMoney(item.amount)} de ${item.clientName}. El cargo sigue existiendo en Stripe; solo desaparece de esta lista.`,
+    message: `Se borra el registro de ${formatMoney(item.amount)} de ${item.clientName}. El cargo sigue existiendo en Stripe; solo desaparece de esta lista. El borrado queda registrado en la bitácora con tu nombre.`,
     confirmLabel: 'Eliminar',
     variant: 'danger',
   })
@@ -235,7 +235,7 @@ async function onRemove(item: CrmConsumption) {
           <button type="button" class="apply" @click="openApply(item)">
             <i class="fa-solid fa-file-invoice" aria-hidden="true" /> Aplicar a factura
           </button>
-          <button v-if="user.isSuperadmin" type="button" class="danger" @click="onRemove(item)">
+          <button v-if="user.canDelete" type="button" class="danger" @click="onRemove(item)">
             <i class="fa-solid fa-trash-can" aria-hidden="true" /> Eliminar
           </button>
         </footer>
@@ -285,7 +285,7 @@ async function onRemove(item: CrmConsumption) {
             <i class="fa-solid fa-file-invoice" aria-hidden="true" /> Aplicar a factura
           </button>
           <button
-            v-if="user.isSuperadmin"
+            v-if="user.canDelete"
             type="button"
             class="danger"
             @click="onRemove(row as CrmConsumption)"
