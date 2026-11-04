@@ -1,40 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { BaseButton, BaseMonthPicker, BaseSearchInput, BaseSelect } from '@/components/base'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { apiErrorMessage } from '@/stores/clients'
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_OPTIONS, useInvoicesStore } from '@/stores/invoices'
-import { useUsersStore } from '@/stores/users'
 import { useFormat } from '@/composables/useFormat'
 import type { Invoice, InvoiceStatus, SelectOption } from '@/types'
 
 const emit = defineEmits<{ refresh: []; advance: [] }>()
 
 const store = useInvoicesStore()
-const users = useUsersStore()
 const { formatDateShort, formatPeriod: fmtPeriod } = useFormat()
 
-onMounted(() => {
-  if (!users.items.length) users.fetch().catch(() => undefined)
-})
 
-/** Responsable de cobro: sale del campo `ownerId` del cliente. */
-const OWNER_ALL = 'all'
-const ownerOptions = computed<SelectOption[]>(() => [
-  { value: OWNER_ALL, label: 'Cualquier responsable', icon: 'fa-solid fa-users' },
-  ...users.items
-    .filter((u) => u.isActive)
-    .map((u) => ({ value: u._id, label: u.name, image: u.photoUrl || null })),
-])
-
-const owner = computed<string | number | null>({
-  get: () => store.filters.ownerId ?? OWNER_ALL,
-  set: (value) => {
-    store.filters.ownerId = value === OWNER_ALL || value === null ? null : String(value)
-    emit('refresh')
-  },
-})
 
 function csvCell(value: string | number): string {
   const text = String(value ?? '')
@@ -117,24 +96,6 @@ function onSearch(value: string) {
   emit('refresh')
 }
 
-const SPECIAL_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Todos los cobros', icon: 'fa-solid fa-list' },
-  { value: 'deferred', label: 'Solo prorrogados', icon: 'fa-solid fa-calendar-plus', color: 'info' },
-  { value: 'advance', label: 'Solo anticipados', icon: 'fa-solid fa-forward', color: 'secondary' },
-]
-
-const special = computed<string | number | null>({
-  get: () => {
-    if (store.filters.deferredOnly) return 'deferred'
-    if (store.filters.advanceOnly) return 'advance'
-    return 'all'
-  },
-  set: (value) => {
-    store.filters.deferredOnly = value === 'deferred'
-    store.filters.advanceOnly = value === 'advance'
-    emit('refresh')
-  },
-})
 
 async function generate() {
   const ok = await confirm({
@@ -157,23 +118,6 @@ async function generate() {
   }
 }
 
-async function recalc() {
-  const ok = await confirm({
-    title: 'Recalcular vencidos',
-    message: 'Se revisarán todos los cobros abiertos y se marcarán como vencidos los que superen su fecha límite.',
-    confirmLabel: 'Recalcular',
-    variant: 'warning',
-  })
-  if (!ok) return
-
-  try {
-    const result = await store.recalc()
-    toast.success('Recálculo completado', `${result.updated} cobros actualizados.`)
-    emit('refresh')
-  } catch (error) {
-    toast.error('No se pudo recalcular', apiErrorMessage(error))
-  }
-}
 </script>
 
 <template>
@@ -186,16 +130,19 @@ async function recalc() {
 
       <div class="head__actions">
         <BaseButton variant="ghost" icon="fa-solid fa-file-csv" :loading="exporting" @click="exportCsv">
-          Exportar CSV
+          CSV
         </BaseButton>
-        <BaseButton icon="fa-solid fa-wand-magic-sparkles" :loading="store.working" @click="generate">
-          Generar cobros del mes
+        <BaseButton
+          variant="ghost"
+          icon="fa-solid fa-rotate"
+          :loading="store.working"
+          title="Se hace solo el día 1. Úsalo si falta el cobro de algún cliente."
+          @click="generate"
+        >
+          Crear los cobros de este mes
         </BaseButton>
-        <BaseButton variant="success" icon="fa-solid fa-forward" @click="emit('advance')">
-          Cobro anticipado
-        </BaseButton>
-        <BaseButton variant="outline" icon="fa-solid fa-rotate" :loading="store.working" @click="recalc">
-          Recalcular vencidos
+        <BaseButton icon="fa-solid fa-plus" @click="emit('advance')">
+          Nuevo cobro
         </BaseButton>
       </div>
     </div>
@@ -203,13 +150,6 @@ async function recalc() {
     <div class="head__filters">
       <BaseMonthPicker v-model="period" label="Período" />
       <BaseSelect v-model="status" :options="statusOptions" label="Estado" />
-      <BaseSelect v-model="special" :options="SPECIAL_OPTIONS" label="Tipo de cobro" />
-      <BaseSelect
-        v-model="owner"
-        :options="ownerOptions"
-        label="Responsable de cobro"
-        searchable
-      />
       <BaseSearchInput
         :model-value="store.filters.q"
         class="head__search"

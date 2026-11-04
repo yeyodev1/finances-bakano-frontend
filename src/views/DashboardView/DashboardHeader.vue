@@ -1,21 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { BaseButton, BaseMonthPicker } from '@/components/base'
-import { useToast } from '@/composables/useToast'
-import { useConfirm } from '@/composables/useConfirm'
 import { useFormat } from '@/composables/useFormat'
+import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useUserStore } from '@/stores/user'
 
+const router = useRouter()
 const dashboard = useDashboardStore()
 const userStore = useUserStore()
-const toast = useToast()
-const { confirm } = useConfirm()
 const { formatPeriod } = useFormat()
 
-const generating = ref(false)
-
-const canGenerate = computed(() => userStore.user?.role !== 'viewer')
+const canWrite = computed(() => userStore.user?.role !== 'viewer')
 
 const period = computed({
   get: () => dashboard.period,
@@ -23,43 +19,12 @@ const period = computed({
 })
 
 const periodLabel = computed(() => formatPeriod(dashboard.period))
-
-async function handleGenerate() {
-  const ok = await confirm({
-    title: 'Generar cobros del mes',
-    message: `Se crearán las facturas pendientes de ${periodLabel.value} para los clientes activos. ¿Continuar?`,
-    confirmLabel: 'Generar',
-    cancelLabel: 'Cancelar',
-    variant: 'primary',
-  })
-  if (!ok) return
-
-  generating.value = true
-  try {
-    const res = await dashboard.generate()
-    if (res.created > 0) {
-      toast.success(
-        `${res.created} cobro${res.created === 1 ? '' : 's'} generado${res.created === 1 ? '' : 's'}`,
-        res.skipped ? `${res.skipped} ya existían.` : undefined,
-      )
-    } else {
-      toast.info('Nada que generar', 'Todos los cobros del mes ya estaban creados.')
-    }
-  } catch (err) {
-    toast.error(
-      'No se pudieron generar los cobros',
-      (err as { message?: string })?.message || 'Intenta nuevamente.',
-    )
-  } finally {
-    generating.value = false
-  }
-}
 </script>
 
 <template>
   <header class="dash-header">
     <div class="dash-header__intro">
-      <span class="dash-header__eyebrow">Resumen del período</span>
+      <span class="dash-header__eyebrow">Así va el mes</span>
       <h1 class="dash-header__title">{{ periodLabel }}</h1>
     </div>
 
@@ -77,13 +42,12 @@ async function handleGenerate() {
       </BaseButton>
 
       <BaseButton
-        v-if="canGenerate"
+        v-if="canWrite"
         variant="primary"
-        icon="fa-solid fa-wand-magic-sparkles"
-        :loading="generating"
-        @click="handleGenerate"
+        icon="fa-solid fa-handshake"
+        @click="router.push({ name: 'Clients', query: { nuevo: '1' } })"
       >
-        Generar cobros del mes
+        Cerré un cliente
       </BaseButton>
     </div>
   </header>

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { BaseButton } from '@/components/base'
 import ClientsFilters from './ClientsFilters.vue'
-import ClientsStats from './ClientsStats.vue'
 import ClientsTable from './ClientsTable.vue'
 import ClientFormModal from './ClientFormModal.vue'
 import ClientWorkspaceModal from './ClientWorkspaceModal.vue'
@@ -17,6 +16,7 @@ import type { Client } from '@/types'
 const store = useClientsStore()
 const userStore = useUserStore()
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -36,6 +36,10 @@ async function load() {
 }
 
 onMounted(async () => {
+  // El Resumen enlaza aquí con ?service=none para completar los que faltan.
+  if (route.query.service === 'none') store.filters.service = 'none'
+  // Desde el Resumen: "Cerré un cliente" abre el formulario directo.
+  if (route.query.nuevo) openCreate()
   await Promise.all([load(), store.fetchStats()])
 })
 
@@ -149,10 +153,8 @@ async function purge(client: Client) {
         <h1><i class="fa-solid fa-users" aria-hidden="true" /> Clientes</h1>
         <p>{{ store.total }} clientes registrados</p>
       </div>
-      <BaseButton icon="fa-solid fa-plus" @click="openCreate">Nuevo cliente</BaseButton>
+      <BaseButton icon="fa-solid fa-handshake" @click="openCreate">Cerré un cliente</BaseButton>
     </header>
-
-    <ClientsStats />
 
     <ClientsFilters @change="load" />
 

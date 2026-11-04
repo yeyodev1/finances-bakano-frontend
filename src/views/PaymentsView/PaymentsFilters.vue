@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { BaseButton, BaseDatePicker, BaseMonthPicker, BaseSelect } from '@/components/base'
-import { PAYMENT_METHOD_OPTIONS, useClientsStore } from '@/stores/clients'
+import { BaseButton, BaseMonthPicker, BaseSelect } from '@/components/base'
+import { useClientsStore } from '@/stores/clients'
 import { usePaymentsStore } from '@/stores/payments'
-import type { PaymentMethod, SelectOption } from '@/types'
+import type { SelectOption } from '@/types'
 
 const emit = defineEmits<{ change: []; export: [] }>()
 
@@ -19,11 +19,6 @@ const clientOptions = computed<SelectOption[]>(() => [
   ...clientsStore.pickerOptions,
 ])
 
-const methodOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: 'Todos los métodos', icon: 'fa-solid fa-wallet' },
-  ...PAYMENT_METHOD_OPTIONS,
-])
-
 const client = computed<string | number | null>({
   get: () => store.filters.clientId ?? 'all',
   set: (value) => {
@@ -32,34 +27,10 @@ const client = computed<string | number | null>({
   },
 })
 
-const method = computed<string | number | null>({
-  get: () => store.filters.method ?? 'all',
-  set: (value) => {
-    store.filters.method = value === 'all' || value === null ? null : (value as PaymentMethod)
-    emit('change')
-  },
-})
-
 const period = computed<string>({
   get: () => store.filters.period ?? '',
   set: (value) => {
     store.filters.period = value || null
-    emit('change')
-  },
-})
-
-const from = computed<string | null>({
-  get: () => store.filters.from,
-  set: (value) => {
-    store.filters.from = value
-    emit('change')
-  },
-})
-
-const to = computed<string | null>({
-  get: () => store.filters.to,
-  set: (value) => {
-    store.filters.to = value
     emit('change')
   },
 })
@@ -74,10 +45,7 @@ function clear() {
   <section class="filters">
     <div class="filters__grid">
       <BaseSelect v-model="client" :options="clientOptions" label="Cliente" searchable />
-      <BaseSelect v-model="method" :options="methodOptions" label="Método" />
-      <BaseMonthPicker v-model="period" label="Período" />
-      <BaseDatePicker v-model="from" label="Desde" placeholder="Sin límite" />
-      <BaseDatePicker v-model="to" label="Hasta" placeholder="Sin límite" />
+      <BaseMonthPicker v-model="period" label="Mes" />
     </div>
 
     <div class="filters__actions">

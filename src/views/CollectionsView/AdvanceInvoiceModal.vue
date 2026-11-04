@@ -38,10 +38,9 @@ const form = reactive({
 const touched = ref(false)
 const loadingClients = ref(false)
 
-function nextPeriod(): string {
+function thisPeriod(): string {
   const now = new Date()
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
 // Ojo: se usa `clients.picker` (lista completa, sin filtros) y no `clients.items`,
@@ -88,7 +87,7 @@ watch(
     if (!open) return
     touched.value = false
     form.clientId = ''
-    form.period = nextPeriod()
+    form.period = thisPeriod()
     form.amount = 0
     form.dueDate = ''
     form.notes = ''
@@ -121,14 +120,14 @@ async function submit(thenPay: boolean) {
     })
 
     toast.success(
-      'Cobro anticipado creado',
+      'Cobro creado',
       `${selectedClient.value?.name ?? 'Cliente'} · ${formatPeriod(form.period)}`,
     )
     emit('created', created)
     if (thenPay) emit('pay', created)
     close()
   } catch (error) {
-    toast.error('No se pudo crear el cobro anticipado', apiErrorMessage(error))
+    toast.error('No se pudo crear el cobro', apiErrorMessage(error))
   }
 }
 </script>
@@ -136,8 +135,8 @@ async function submit(thenPay: boolean) {
 <template>
   <BaseModal
     :model-value="modelValue"
-    title="Cobro anticipado"
-    icon="fa-solid fa-forward"
+    title="Nuevo cobro"
+    icon="fa-solid fa-plus"
     size="md"
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -145,8 +144,8 @@ async function submit(thenPay: boolean) {
       <div class="advance__notice">
         <i class="fa-solid fa-circle-info" aria-hidden="true" />
         <p>
-          Crea el cobro de un período futuro para poder registrar el pago hoy. Útil cuando el
-          cliente paga por adelantado pero el servicio arranca más adelante.
+          Un cobro suelto con su monto y su fecha: una cuota de una web, un pago único, o un mes
+          que el cliente quiere adelantar (elige un mes futuro). Un cobro por cliente y mes.
         </p>
       </div>
 

@@ -97,12 +97,6 @@ function openPay(invoice: Invoice) {
   payOpen.value = true
 }
 
-/** Con un solo cobro abierto no hay nada que elegir: se va derecho al pago. */
-function payOnlyOpen() {
-  const invoice = openInvoices.value[0]
-  if (invoice) openPay(invoice)
-}
-
 function onPicked(invoice: Invoice) {
   payTarget.value = invoice
   payOpen.value = true
@@ -131,6 +125,7 @@ function isSettled(invoice: Invoice): boolean {
 }
 
 function previousDueLabel(invoice: Invoice): string {
+  if (!isDeferred(invoice)) return ''
   const original = invoice.originalDueDate || lastDeferral(invoice)?.previousDueDate
   return original ? `antes: ${formatDateShort(original)}` : ''
 }
@@ -201,24 +196,6 @@ async function applyReason(reason: string) {
         </span>
       </div>
 
-      <div class="bar__actions">
-        <BaseButton
-          v-if="openInvoices.length === 1"
-          variant="success"
-          icon="fa-solid fa-hand-holding-dollar"
-          @click="payOnlyOpen"
-        >
-          Registrar pago
-        </BaseButton>
-        <BaseButton
-          v-else
-          variant="success"
-          icon="fa-solid fa-hand-holding-dollar"
-          @click="pickerOpen = true"
-        >
-          {{ openInvoices.length > 1 ? 'Registrar pago' : 'Registrar pago de otro período' }}
-        </BaseButton>
-      </div>
     </section>
 
     <div v-if="store.loading" class="tab__skeleton">
@@ -259,19 +236,18 @@ async function applyReason(reason: string) {
           <p v-if="isSettled(invoice)" class="row__due row__due--paid">
             <i class="fa-solid fa-circle-check" aria-hidden="true" />
             Pagado {{ invoice.paidAt ? formatDateShort(invoice.paidAt) : '' }}
-            <span class="row__prev">· vencía {{ formatDateShort(invoice.dueDate) }}</span>
           </p>
           <p v-else class="row__due">
             <i class="fa-solid fa-calendar-check" aria-hidden="true" />
             Vence {{ formatDateShort(invoice.dueDate) }}
             <span v-if="overdueDays(invoice)" class="row__late">
-              · {{ overdueDays(invoice) }} días de mora
+              · vencido hace {{ overdueDays(invoice) }} días
             </span>
             <span v-if="previousDueLabel(invoice)" class="row__prev">· {{ previousDueLabel(invoice) }}</span>
           </p>
           <div v-if="isDeferred(invoice) || invoice.isAdvance" class="row__tags">
             <BaseBadge v-if="isDeferred(invoice)" variant="info" icon="fa-solid fa-calendar-plus" size="sm">
-              Prorrogado
+              Aplazado
             </BaseBadge>
             <BaseBadge v-if="invoice.isAdvance" variant="secondary" icon="fa-solid fa-forward" size="sm">
               Anticipado
@@ -281,8 +257,8 @@ async function applyReason(reason: string) {
 
         <div class="row__amounts">
           <span class="row__amount">{{ formatMoney(invoice.amount) }}</span>
-          <span v-if="invoice.paidAmount > 0" class="row__paid">
-            Pagado {{ formatMoney(invoice.paidAmount) }}
+          <span v-if="invoice.paidAmount > 0 && isOpen(invoice)" class="row__paid">
+            Pagó {{ formatMoney(invoice.paidAmount) }} · falta {{ formatMoney(invoice.amount - invoice.paidAmount) }}
           </span>
         </div>
 
@@ -291,32 +267,12 @@ async function applyReason(reason: string) {
         </BaseBadge>
 
         <div v-if="isOpen(invoice)" class="row__actions">
-          <BaseButton
-            size="sm"
-            variant="success"
-            icon="fa-solid fa-hand-holding-dollar"
-            @click="openPay(invoice)"
-          >
-            Registrar pago
+          <BaseButton size="sm" @click="openPay(invoice)">Registrar pago</BaseButton>
+          <BaseButton size="sm" variant="ghost" @click="openDefer(invoice)">Aplazar</BaseButton>
+          <BaseButton v-if="isDeferred(invoice)" size="sm" variant="ghost" @click="undoDefer(invoice)">
+            Deshacer aplazo
           </BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-calendar-plus" @click="openDefer(invoice)">
-            Aplazar cobro
-          </BaseButton>
-          <BaseButton
-            v-if="isDeferred(invoice)"
-            size="sm"
-            variant="ghost"
-            icon="fa-solid fa-clock-rotate-left"
-            @click="undoDefer(invoice)"
-          >
-            Deshacer
-          </BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-hand-holding-heart" @click="openReason(invoice, 'waive')">
-            Condonar
-          </BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-ban" @click="openReason(invoice, 'cancel')">
-            Anular
-          </BaseButton>
+          <BaseButton size="sm" variant="ghost" @click="openReason(invoice, 'cancel')">No cobrar</BaseButton>
         </div>
       </article>
     </TransitionGroup>

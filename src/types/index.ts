@@ -290,6 +290,14 @@ export interface ClientCategory {
   clientCount?: number
 }
 
+/** Qué le vendemos. El prefijo es la vertical: tráfico, web o automatización. */
+export type ClientService =
+  | 'trafico_completo'
+  | 'trafico_guiones'
+  | 'web_tienda'
+  | 'web_informativa'
+  | 'automatizacion'
+
 export interface Client {
   _id: string
   name: string
@@ -304,6 +312,8 @@ export interface Client {
   collectionDayLabel?: string
   paymentMethod: PaymentMethod
   billingType: BillingType
+  /** null = falta definirlo. */
+  service?: ClientService | null
   splits: ClientSplit[]
   notes?: string
   tags: string[]
@@ -322,6 +332,9 @@ export interface Client {
   shouldBeClosed?: boolean
   overdueAmount?: number
   maxDaysOverdue?: number
+  /** Solo en la ficha: cuántos cobros vencidos y los días de gracia que aplican. */
+  overdueInvoices?: number
+  effectiveGraceDays?: number
   autoDeactivate: boolean
   graceDays?: number | null
   isActive: boolean
@@ -594,6 +607,8 @@ export interface DashboardSummary {
   /** Lo que debería entrar cada mes si todos los clientes activos pagan. */
   idealMonthlyAmount: number
   archivedClients: number
+  /** Cobrado y esperado del mes por servicio. service null = clientes sin servicio. */
+  byService?: { service: ClientService | null; expected: number; collected: number; clients: number }[]
   /** Objetivo de ventas del mes, para leerlo junto al ideal. */
   salesGoal?: {
     hasGoal: boolean

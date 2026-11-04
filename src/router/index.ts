@@ -38,84 +38,10 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: 'Ficha del cliente', requiresAuth: true, hideInNav: true },
       },
       {
-        path: 'garantias',
-        name: 'Retention',
-        component: () => import('@/views/RetentionView'),
-        meta: {
-          title: 'Garantías',
-          icon: 'fa-solid fa-shield-halved',
-          requiresAuth: true,
-        },
-      },
-      {
-        path: 'bajas',
-        name: 'Churn',
-        component: () => import('@/views/ChurnView'),
-        meta: { title: 'Bajas', icon: 'fa-solid fa-user-slash', requiresAuth: true },
-      },
-      {
-        path: 'ventas',
-        name: 'Sales',
-        component: () => import('@/views/SalesView'),
-        meta: { title: 'Ventas', icon: 'fa-solid fa-handshake', requiresAuth: true },
-      },
-      {
         path: 'pagos',
         name: 'Payments',
         component: () => import('@/views/PaymentsView'),
         meta: { title: 'Pagos', icon: 'fa-solid fa-receipt', requiresAuth: true },
-      },
-      {
-        path: 'comprobantes',
-        name: 'Submissions',
-        component: () => import('@/views/SubmissionsView'),
-        meta: {
-          title: 'Comprobantes',
-          icon: 'fa-solid fa-file-circle-check',
-          requiresAuth: true,
-          roles: ['superadmin', 'admin', 'vendedor'],
-        },
-      },
-      {
-        path: 'stripe',
-        name: 'Stripe',
-        component: () => import('@/views/StripeImportView'),
-        meta: {
-          title: 'Stripe',
-          icon: 'fa-brands fa-stripe-s',
-          requiresAuth: true,
-          roles: ['superadmin', 'admin', 'vendedor'],
-        },
-      },
-      {
-        path: 'consumo-crm',
-        name: 'CrmConsumption',
-        component: () => import('@/views/CrmConsumptionView'),
-        meta: {
-          title: 'Consumo CRM',
-          icon: 'fa-solid fa-plug-circle-bolt',
-          requiresAuth: true,
-          roles: ['superadmin', 'admin', 'vendedor'],
-        },
-      },
-      {
-        path: 'banco',
-        name: 'Bank',
-        component: () => import('@/views/BankView'),
-        // Banco: saldos y movimientos reales. Solo administración; el rol
-        // `vendedor` no lo ve en el menú ni puede entrar por URL (ver guard).
-        meta: {
-          title: 'Banco',
-          icon: 'fa-solid fa-building-columns',
-          requiresAuth: true,
-          roles: ['superadmin', 'admin'],
-        },
-      },
-      {
-        path: 'espacios',
-        name: 'Workspaces',
-        component: () => import('@/views/WorkspacesView'),
-        meta: { title: 'Espacios', icon: 'fa-solid fa-layer-group', requiresAuth: true },
       },
       {
         path: 'usuarios',

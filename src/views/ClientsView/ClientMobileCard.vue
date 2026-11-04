@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { BaseBadge, BaseButton, BaseWorkspaceAvatar } from '@/components/base'
 import { useFormat } from '@/composables/useFormat'
 import { isOverrideActive } from '@/composables/useAccessOverride'
-import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
+import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS, SERVICE_ICONS, serviceLabel } from '@/stores/clients'
 import { archiveReasonIcon, archiveReasonLabel, archiveReasonTone } from '@/config/archiveReasons'
 import type { BadgeVariant } from '@/components/base'
 import type { Client } from '@/types'
@@ -52,6 +52,10 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
         <h3 class="card__name">{{ client.name }}</h3>
         <p v-if="client.contactName" class="card__contact">
           <i class="fa-solid fa-user" aria-hidden="true" /> {{ client.contactName }}
+        </p>
+        <p class="card__contact" :class="{ 'card__contact--missing': !client.service }">
+          <i :class="client.service ? SERVICE_ICONS[client.service] : 'fa-solid fa-circle-question'" aria-hidden="true" />
+          {{ serviceLabel(client.service) }}
         </p>
       </div>
       <BaseBadge
@@ -206,5 +210,9 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
 
 .danger-action {
   color: $alert-error;
+}
+
+.card__contact--missing {
+  color: $alert-warning;
 }
 </style>

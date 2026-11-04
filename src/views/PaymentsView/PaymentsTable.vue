@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { BaseBadge, BaseEmptyState, BaseSkeleton, BaseTable } from '@/components/base'
+import { BaseBadge, BaseEmptyState, BaseSkeleton, BaseTable, BaseWorkspaceAvatar } from '@/components/base'
 import { useBreakpoint } from '@/composables/useBreakpoint'
 import { useFormat } from '@/composables/useFormat'
-import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
-import type { Payment } from '@/types'
+import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS, serviceLabel } from '@/stores/clients'
+import type { Client, Payment } from '@/types'
 
 const props = defineProps<{ items: Payment[]; loading: boolean; canDelete?: boolean }>()
 const emit = defineEmits<{ remove: [payment: Payment]; preview: [payment: Payment] }>()
@@ -14,6 +14,16 @@ function clientRoute(payment: Payment): string {
   const raw = payment.clientId
   const id = typeof raw === 'string' ? raw : raw?._id
   return id ? `/clientes/${id}` : ''
+}
+
+/** El listado trae el cliente poblado: logo, dueño y servicio. */
+function clientOf(payment: Payment): Client | null {
+  return typeof payment.clientId === 'object' ? (payment.clientId as Client) : null
+}
+
+function clientSubtitle(payment: Payment): string {
+  const c = clientOf(payment)
+  return c ? [c.contactName, serviceLabel(c.service)].filter(Boolean).join(' · ') : ''
 }
 
 const { isMobile } = useBreakpoint()
@@ -53,6 +63,7 @@ const rows = computed(() => props.items)
             <i class="fa-solid fa-arrow-right" aria-hidden="true" />
           </RouterLink>
           <h3 v-else>{{ payment.clientName }}</h3>
+          <span v-if="clientSubtitle(payment)" class="sub">{{ clientSubtitle(payment) }}</span>
           <span class="card__amount">{{ formatMoney(payment.amount) }}</span>
         </header>
 
@@ -80,14 +91,24 @@ const rows = computed(() => props.items)
 
     <BaseTable v-else :columns="columns" :rows="rows" row-key="_id">
       <template #cell-clientName="{ row }">
-        <RouterLink v-if="clientRoute(row as Payment)" :to="clientRoute(row as Payment)" class="client-link">
-          {{ (row as Payment).clientName }}
-          <i class="fa-solid fa-arrow-right" aria-hidden="true" />
-        </RouterLink>
-        <span v-else class="strong">{{ (row as Payment).clientName }}</span>
-        <span v-if="(row as Payment).registeredByName" class="sub">
-          Registró {{ (row as Payment).registeredByName }}
-        </span>
+        <div class="client-cell">
+          <BaseWorkspaceAvatar
+            :src="clientOf(row as Payment)?.workspaceImageUrl"
+            :name="(row as Payment).clientName"
+            size="sm"
+          />
+          <div>
+            <RouterLink v-if="clientRoute(row as Payment)" :to="clientRoute(row as Payment)" class="client-link">
+              {{ (row as Payment).clientName }}
+              <i class="fa-solid fa-arrow-right" aria-hidden="true" />
+            </RouterLink>
+            <span v-else class="strong">{{ (row as Payment).clientName }}</span>
+            <span v-if="clientSubtitle(row as Payment)" class="sub">{{ clientSubtitle(row as Payment) }}</span>
+            <span v-if="(row as Payment).registeredByName" class="sub">
+              Registró {{ (row as Payment).registeredByName }}
+            </span>
+          </div>
+        </div>
       </template>
 
       <template #cell-amount="{ row }">
@@ -262,5 +283,11 @@ const rows = computed(() => props.items)
   width: 32px;
   height: 32px;
   margin-left: auto;
+}
+
+.client-cell {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
 }
 </style>

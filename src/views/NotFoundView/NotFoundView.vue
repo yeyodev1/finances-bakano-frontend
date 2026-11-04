@@ -28,7 +28,7 @@ const shortcuts = [
     text: 'Registrar pagos y aplazamientos',
   },
   { to: '/clientes', icon: 'fa-solid fa-users', title: 'Clientes', text: 'Fichas y espacios vinculados' },
-  { to: '/espacios', icon: 'fa-solid fa-layer-group', title: 'Espacios', text: 'Estado de acceso de cada cliente' },
+  { to: '/pagos', icon: 'fa-solid fa-receipt', title: 'Pagos', text: 'Todo lo que ya entró' },
 ]
 
 function goBack() {

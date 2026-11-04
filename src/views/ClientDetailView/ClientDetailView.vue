@@ -12,7 +12,10 @@ import ClientBackfillModal from './ClientBackfillModal.vue'
 import ClientFormModal from '../ClientsView/ClientFormModal.vue'
 import ClientWorkspaceModal from '../ClientsView/ClientWorkspaceModal.vue'
 import ClientArchiveModal from '../ClientsView/ClientArchiveModal.vue'
-import AccessGrantModal from '../WorkspacesView/AccessGrantModal.vue'
+import AccessGrantModal from '@/components/access/AccessGrantModal.vue'
+import InvoicePickerModal from '../PaymentsView/InvoicePickerModal.vue'
+import PaymentModal from '../CollectionsView/PaymentModal.vue'
+import type { Invoice } from '@/types'
 import { useToast } from '@/composables/useToast'
 import { useConfirm } from '@/composables/useConfirm'
 import { apiErrorMessage, useClientsStore } from '@/stores/clients'
@@ -36,6 +39,24 @@ const archiveOpen = ref(false)
 const reactivateOpen = ref(false)
 const grantOpen = ref(false)
 const notFound = ref(false)
+
+// Registrar pago desde la ficha: se elige el cobro del cliente y se paga.
+const pickerOpen = ref(false)
+const payOpen = ref(false)
+const payTarget = ref<Invoice | null>(null)
+// La pestaña de cobros se vuelve a montar para que muestre el pago nuevo.
+const tabKey = ref(0)
+
+function onPicked(invoice: Invoice) {
+  payTarget.value = invoice
+  payOpen.value = true
+}
+
+async function onPaid() {
+  payTarget.value = null
+  tabKey.value += 1
+  await load()
+}
 
 const tabs = computed(() => [
   { value: 'invoices', label: 'Cobros', icon: 'fa-solid fa-file-invoice-dollar' },
@@ -152,6 +173,7 @@ async function revokeAccess() {
         @reactivate="reactivateOpen = true"
         @grant="grantOpen = true"
         @revoke="revokeAccess"
+        @pay="pickerOpen = true"
       />
 
       <BaseTabs v-model="tab" :tabs="tabs" />
@@ -159,12 +181,12 @@ async function revokeAccess() {
       <Transition name="fade-slide" mode="out-in">
         <ClientInvoicesTab
           v-if="tab === 'invoices'"
-          :key="`inv-${clientId}`"
+          :key="`inv-${clientId}-${tabKey}`"
           :client-id="clientId"
           :client-name="client.name"
           @paid="load"
         />
-        <ClientPaymentsTab v-else-if="tab === 'payments'" :key="`pay-${clientId}`" :client-id="clientId" />
+        <ClientPaymentsTab v-else-if="tab === 'payments'" :key="`pay-${clientId}-${tabKey}`" :client-id="clientId" />
         <ClientLifecycleTab
           v-else-if="tab === 'lifecycle'"
           :key="`life-${clientId}`"
@@ -174,6 +196,14 @@ async function revokeAccess() {
         <ClientInfoTab v-else :key="`info-${clientId}`" :client="client" />
       </Transition>
 
+      <InvoicePickerModal
+        v-model="pickerOpen"
+        :client-id="clientId"
+        :client-name="client.name"
+        @picked="onPicked"
+        @settled="onPaid"
+      />
+      <PaymentModal v-model="payOpen" :invoice="payTarget" @registered="onPaid" />
       <ClientFormModal v-model="formOpen" :client="client" @saved="load" />
       <ClientWorkspaceModal v-model="workspaceOpen" :client="client" @saved="load" />
       <ClientBackfillModal v-model="backfillOpen" :client="client" @done="load" />

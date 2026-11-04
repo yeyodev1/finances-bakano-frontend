@@ -12,7 +12,7 @@ import ClientMobileCard from './ClientMobileCard.vue'
 import { useBreakpoint } from '@/composables/useBreakpoint'
 import { useFormat } from '@/composables/useFormat'
 import { isOverrideActive } from '@/composables/useAccessOverride'
-import { BILLING_TYPE_LABELS, PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
+import { BILLING_TYPE_LABELS, PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS, SERVICE_ICONS, isNewSale, serviceLabel } from '@/stores/clients'
 import { archiveReasonIcon, archiveReasonLabel, archiveReasonTone } from '@/config/archiveReasons'
 import type { BadgeVariant } from '@/components/base'
 import type { Client } from '@/types'
@@ -54,12 +54,11 @@ function rowClass(row: unknown): string {
 }
 
 const columns = [
-  { key: 'name', label: 'Cliente' },
+  { key: 'name', label: 'Negocio / dueño' },
+  { key: 'service', label: 'Servicio' },
   { key: 'amount', label: 'Monto', align: 'right' },
-  { key: 'issueDay', label: 'Emisión' },
   { key: 'collectionDay', label: 'Cobro' },
-  { key: 'paymentMethod', label: 'Método' },
-  { key: 'workspace', label: 'Espacio' },
+  { key: 'workspace', label: 'Metrics' },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: '', align: 'right' },
 ]
@@ -85,7 +84,7 @@ function collectionText(client: Client): string {
       message="No hay clientes que coincidan con los filtros aplicados."
     >
       <template #action>
-        <BaseButton icon="fa-solid fa-plus" @click="emit('create')">Nuevo cliente</BaseButton>
+        <BaseButton icon="fa-solid fa-handshake" @click="emit('create')">Cerré un cliente</BaseButton>
       </template>
     </BaseEmptyState>
 
@@ -115,9 +114,14 @@ function collectionText(client: Client): string {
             :status="avatarStatus(row as Client)"
           />
           <span class="link-name__id">
-            <span class="link-name__text">{{ (row as Client).name }}</span>
-            <span v-if="(row as Client).contactEmail" class="link-name__sub">
-              {{ (row as Client).contactEmail }}
+            <span class="link-name__text">
+              {{ (row as Client).name }}
+              <BaseBadge v-if="isNewSale(row as Client)" variant="success" icon="fa-solid fa-star" size="sm">
+                Venta nueva
+              </BaseBadge>
+            </span>
+            <span v-if="(row as Client).contactName || (row as Client).contactEmail" class="link-name__sub">
+              {{ (row as Client).contactName || (row as Client).contactEmail }}
             </span>
           </span>
         </button>
@@ -130,7 +134,15 @@ function collectionText(client: Client): string {
         </span>
       </template>
 
-      <template #cell-issueDay="{ row }">{{ dayLabel((row as Client).issueDay) }}</template>
+      <template #cell-service="{ row }">
+        <BaseBadge
+          :variant="(row as Client).service ? 'secondary' : 'warning'"
+          :icon="(row as Client).service ? SERVICE_ICONS[(row as Client).service!] : 'fa-solid fa-circle-question'"
+          size="sm"
+        >
+          {{ serviceLabel((row as Client).service) }}
+        </BaseBadge>
+      </template>
 
       <template #cell-collectionDay="{ row }">{{ collectionText(row as Client) }}</template>
 
@@ -144,7 +156,7 @@ function collectionText(client: Client): string {
 
       <template #cell-workspace="{ row }">
         <BaseBadge v-if="(row as Client).workspaceId" :variant="(row as Client).workspaceIsActive === false ? 'warning' : 'info'" icon="fa-solid fa-layer-group">
-          {{ (row as Client).workspaceName }}
+          {{ (row as Client).workspaceIsActive === false ? 'Pausado' : 'Conectado' }}
         </BaseBadge>
         <span v-else class="muted"><i class="fa-solid fa-link-slash" aria-hidden="true" /> Sin vincular</span>
       </template>
@@ -167,41 +179,7 @@ function collectionText(client: Client): string {
 
       <template #cell-actions="{ row }">
         <div class="row-actions">
-          <button type="button" title="Ver ficha" @click="emit('view', row as Client)">
-            <i class="fa-solid fa-eye" aria-hidden="true" />
-          </button>
-          <button type="button" title="Editar" @click="emit('edit', row as Client)">
-            <i class="fa-solid fa-pen" aria-hidden="true" />
-          </button>
-          <button type="button" title="Vincular espacio" @click="emit('link', row as Client)">
-            <i class="fa-solid fa-link" aria-hidden="true" />
-          </button>
-          <button
-            v-if="!(row as Client).isArchived"
-            type="button"
-            :title="(row as Client).isActive ? 'Desactivar' : 'Activar'"
-            @click="emit('toggle', row as Client)"
-          >
-            <i :class="(row as Client).isActive ? 'fa-solid fa-toggle-off' : 'fa-solid fa-toggle-on'" aria-hidden="true" />
-          </button>
-          <button
-            v-if="(row as Client).isArchived"
-            type="button"
-            class="success"
-            title="Reactivar cliente"
-            @click="emit('reactivate', row as Client)"
-          >
-            <i class="fa-solid fa-rotate-left" aria-hidden="true" />
-          </button>
-          <button
-            v-else
-            type="button"
-            class="danger"
-            title="Dar de baja"
-            @click="emit('archive', row as Client)"
-          >
-            <i class="fa-solid fa-box-archive" aria-hidden="true" />
-          </button>
+          <BaseButton size="sm" variant="ghost" @click="emit('edit', row as Client)">Editar</BaseButton>
           <button
             v-if="canPurge"
             type="button"

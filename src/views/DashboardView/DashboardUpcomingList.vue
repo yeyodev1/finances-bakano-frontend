@@ -33,8 +33,10 @@ function clientId(invoice: Invoice): string {
 }
 
 function clientImage(invoice: Invoice): string | null {
+  // El resumen trae el cliente en `client` (aggregate), las listas en `clientId` poblado.
+  const joined = (invoice as Invoice & { client?: Client }).client
   const raw = invoice.clientId as string | Client
-  return typeof raw === 'string' ? null : raw?.workspaceImageUrl ?? null
+  return joined?.workspaceImageUrl ?? (typeof raw === 'string' ? null : raw?.workspaceImageUrl ?? null)
 }
 
 function daysLeft(invoice: Invoice): number {

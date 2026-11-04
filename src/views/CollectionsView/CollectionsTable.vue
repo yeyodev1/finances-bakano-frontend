@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import {
   BaseBadge,
   BaseButton,
@@ -17,60 +17,13 @@ import {
   isDeferred,
   lastDeferral,
 } from '@/stores/invoices'
+import { isNewSale, serviceLabel } from '@/stores/clients'
 import type { Client, Invoice } from '@/types'
 
 const props = defineProps<{ items: Invoice[]; loading: boolean }>()
 
-// ── Selección múltiple ───────────────────────────────────────────
-// Solo se pueden seleccionar los cobros abiertos: condonar o aplazar uno ya
-// pagado o anulado no significa nada y el backend lo rechazaría igual.
-const selectedIds = ref<string[]>([])
-
-function isSelectable(invoice: Invoice): boolean {
-  return ['pending', 'partial', 'overdue'].includes(invoice.status)
-}
-
-const selectableRows = computed(() => props.items.filter(isSelectable))
-
-const selectedRows = computed(() =>
-  props.items.filter((i) => selectedIds.value.includes(i._id)),
-)
-
-const allSelected = computed(
-  () => selectableRows.value.length > 0 && selectedIds.value.length === selectableRows.value.length,
-)
-
-const selectedTotal = computed(() =>
-  selectedRows.value.reduce((acc, i) => acc + balance(i), 0),
-)
-
-function toggleRow(id: string) {
-  const at = selectedIds.value.indexOf(id)
-  if (at >= 0) selectedIds.value.splice(at, 1)
-  else selectedIds.value.push(id)
-}
-
-function toggleAll() {
-  selectedIds.value = allSelected.value ? [] : selectableRows.value.map((i) => i._id)
-}
-
-function clearSelection() {
-  selectedIds.value = []
-}
-
-// Si cambian los filtros, la selección vieja ya no aplica.
-watch(
-  () => props.items,
-  () => {
-    const visible = new Set(props.items.map((i) => i._id))
-    selectedIds.value = selectedIds.value.filter((id) => visible.has(id))
-  },
-)
-
-defineExpose({ clearSelection })
 
 const emit = defineEmits<{
-  bulk: [action: 'waive' | 'cancel' | 'defer', invoices: Invoice[]]
   pay: [invoice: Invoice]
   waive: [invoice: Invoice]
   cancel: [invoice: Invoice]
@@ -82,11 +35,9 @@ const { isMobile } = useBreakpoint()
 const { formatMoney, formatDateShort, daysDiff } = useFormat()
 
 const columns = [
-  { key: 'select', label: '' },
   { key: 'clientName', label: 'Cliente' },
   { key: 'amount', label: 'Monto', align: 'right' },
-  { key: 'dueDate', label: 'Vencimiento' },
-  { key: 'late', label: 'Mora' },
+  { key: 'dueDate', label: 'Vence' },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: '', align: 'right' },
 ]
@@ -101,6 +52,18 @@ function clientIdOf(invoice: Invoice): string | null {
   const raw = invoice.clientId as string | Client
   if (!raw) return null
   return typeof raw === 'string' ? raw : (raw._id ?? null)
+}
+
+/** Dueño y servicio: una persona puede tener varios negocios, así se distinguen. */
+function clientSubtitle(invoice: Invoice): string {
+  const raw = invoice.clientId as string | Client
+  if (typeof raw === 'string' || !raw) return invoice.splitLabel || ''
+  return [raw.contactName, serviceLabel(raw.service), invoice.splitLabel].filter(Boolean).join(' · ')
+}
+
+function clientIsNew(invoice: Invoice): boolean {
+  const raw = invoice.clientId as string | Client
+  return typeof raw !== 'string' && isNewSale(raw)
 }
 
 /** La imagen del espacio llega poblada cuando el backend expande el cliente. */
@@ -118,11 +81,17 @@ function isOpen(invoice: Invoice): boolean {
   return ['pending', 'partial', 'overdue'].includes(invoice.status)
 }
 
+/** Solo un pago parcial deja saldo que mostrar. */
+function isPartial(invoice: Invoice): boolean {
+  return invoice.paidAmount > 0 && balance(invoice) > 0
+}
+
 function balance(invoice: Invoice): number {
   return Math.max(Number(invoice.amount) - Number(invoice.paidAmount || 0), 0)
 }
 
 function previousDueLabel(invoice: Invoice): string {
+  if (!isDeferred(invoice)) return ''
   const original = invoice.originalDueDate || lastDeferral(invoice)?.previousDueDate
   return original ? `antes: ${formatDateShort(original)}` : ''
 }
@@ -130,25 +99,6 @@ function previousDueLabel(invoice: Invoice): string {
 
 <template>
   <div class="collections-table">
-    <Transition name="fade-slide">
-      <div v-if="selectedIds.length" class="bulk">
-        <span class="bulk__count">
-          <i class="fa-solid fa-check-double" aria-hidden="true" />
-          {{ selectedIds.length }} seleccionado(s) · {{ formatMoney(selectedTotal) }} de saldo
-        </span>
-        <div class="bulk__actions">
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-calendar-plus"
-            @click="emit('bulk', 'defer', selectedRows)">Aplazar</BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-hand-holding-heart"
-            @click="emit('bulk', 'waive', selectedRows)">Condonar</BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-ban"
-            @click="emit('bulk', 'cancel', selectedRows)">Anular</BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-xmark"
-            @click="clearSelection">Quitar selección</BaseButton>
-        </div>
-      </div>
-    </Transition>
-
     <div v-if="loading" class="collections-table__skeleton">
       <BaseSkeleton v-for="n in 6" :key="n" height="64px" />
     </div>
@@ -183,7 +133,7 @@ function previousDueLabel(invoice: Invoice): string {
                   aria-hidden="true"
                 />
               </h3>
-              <p v-if="invoice.splitLabel" class="card__split">{{ invoice.splitLabel }}</p>
+              <p v-if="clientSubtitle(invoice)" class="card__split">{{ clientSubtitle(invoice) }}</p>
             </div>
           </component>
           <div class="card__badges">
@@ -191,7 +141,10 @@ function previousDueLabel(invoice: Invoice): string {
               {{ INVOICE_STATUS_LABELS[invoice.status] }}
             </BaseBadge>
             <BaseBadge v-if="isDeferred(invoice)" variant="info" icon="fa-solid fa-calendar-plus" size="sm">
-              Prorrogado
+              Aplazado
+            </BaseBadge>
+            <BaseBadge v-if="clientIsNew(invoice)" variant="success" icon="fa-solid fa-star" size="sm">
+              Venta nueva
             </BaseBadge>
             <BaseBadge v-if="invoice.isAdvance" variant="secondary" icon="fa-solid fa-forward" size="sm">
               Anticipado
@@ -201,8 +154,8 @@ function previousDueLabel(invoice: Invoice): string {
 
         <div class="card__amounts">
           <span class="card__amount">{{ formatMoney(invoice.amount) }}</span>
-          <span v-if="invoice.paidAmount > 0" class="card__balance">
-            Saldo {{ formatMoney(balance(invoice)) }}
+          <span v-if="isPartial(invoice)" class="card__balance">
+            Falta {{ formatMoney(balance(invoice)) }}
           </span>
         </div>
 
@@ -220,7 +173,7 @@ function previousDueLabel(invoice: Invoice): string {
             Registrar pago
           </BaseButton>
           <BaseButton size="sm" variant="ghost" icon="fa-solid fa-calendar-plus" @click="emit('defer', invoice)">
-            Aplazar cobro
+            Aplazar
           </BaseButton>
           <BaseButton
             v-if="isDeferred(invoice)"
@@ -229,43 +182,15 @@ function previousDueLabel(invoice: Invoice): string {
             icon="fa-solid fa-clock-rotate-left"
             @click="emit('undo-defer', invoice)"
           >
-            Deshacer prórroga
+            Deshacer aplazo
           </BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-hand-holding-heart" @click="emit('waive', invoice)">
-            Condonar
-          </BaseButton>
-          <BaseButton size="sm" variant="ghost" icon="fa-solid fa-ban" @click="emit('cancel', invoice)">
-            Anular
-          </BaseButton>
+          <BaseButton size="sm" variant="ghost" @click="emit('cancel', invoice)">No cobrar</BaseButton>
         </footer>
       </article>
     </TransitionGroup>
 
 
     <BaseTable v-else :columns="columns" :rows="rows" row-key="_id">
-      <template #head-select>
-        <input
-          class="check"
-          type="checkbox"
-          :checked="allSelected"
-          :indeterminate="selectedIds.length > 0 && !allSelected"
-          aria-label="Seleccionar todos los cobros abiertos"
-          :disabled="!selectableRows.length"
-          @change="toggleAll"
-        />
-      </template>
-
-      <template #cell-select="{ row }">
-        <input
-          v-if="isSelectable(row as Invoice)"
-          class="check"
-          type="checkbox"
-          :checked="selectedIds.includes((row as Invoice)._id)"
-          :aria-label="`Seleccionar el cobro de ${(row as Invoice).clientName}`"
-          @change="toggleRow((row as Invoice)._id)"
-        />
-      </template>
-
       <template #cell-clientName="{ row }">
         <component
           :is="clientIdOf(row as Invoice) ? 'RouterLink' : 'div'"
@@ -291,8 +216,8 @@ function previousDueLabel(invoice: Invoice): string {
                 aria-hidden="true"
               />
             </span>
-            <span v-if="(row as Invoice).splitLabel" class="client__split">
-              {{ (row as Invoice).splitLabel }}
+            <span v-if="clientSubtitle(row as Invoice)" class="client__split">
+              {{ clientSubtitle(row as Invoice) }}
             </span>
           </div>
         </component>
@@ -300,27 +225,23 @@ function previousDueLabel(invoice: Invoice): string {
 
       <template #cell-amount="{ row }">
         <strong>{{ formatMoney((row as Invoice).amount) }}</strong>
-        <span v-if="(row as Invoice).paidAmount > 0" class="paid">
-          Saldo {{ formatMoney(balance(row as Invoice)) }}
+        <span v-if="isPartial(row as Invoice)" class="paid">
+          Falta {{ formatMoney(balance(row as Invoice)) }}
         </span>
       </template>
 
       <template #cell-dueDate="{ row }">
         {{ formatDateShort((row as Invoice).dueDate) }}
+        <span v-if="lateDays(row as Invoice) && isOpen(row as Invoice)" class="late">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true" /> hace {{ lateDays(row as Invoice) }} días
+        </span>
         <span
           v-if="previousDueLabel(row as Invoice)"
           class="prev"
-          :title="`Prorrogado · ${previousDueLabel(row as Invoice)}`"
+          :title="`Aplazado · ${previousDueLabel(row as Invoice)}`"
         >
           {{ previousDueLabel(row as Invoice) }}
         </span>
-      </template>
-
-      <template #cell-late="{ row }">
-        <span v-if="lateDays(row as Invoice) && isOpen(row as Invoice)" class="late">
-          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {{ lateDays(row as Invoice) }} días
-        </span>
-        <span v-else class="muted">—</span>
       </template>
 
       <template #cell-status="{ row }">
@@ -337,7 +258,10 @@ function previousDueLabel(invoice: Invoice): string {
             icon="fa-solid fa-calendar-plus"
             size="sm"
           >
-            Prorrogado
+            Aplazado
+          </BaseBadge>
+          <BaseBadge v-if="clientIsNew(row as Invoice)" variant="success" icon="fa-solid fa-star" size="sm">
+            Venta nueva
           </BaseBadge>
           <BaseBadge
             v-if="(row as Invoice).isAdvance"
@@ -352,26 +276,19 @@ function previousDueLabel(invoice: Invoice): string {
 
       <template #cell-actions="{ row }">
         <div v-if="isOpen(row as Invoice)" class="row-actions">
-          <BaseButton size="sm" icon="fa-solid fa-hand-holding-dollar" @click="emit('pay', row as Invoice)">
-            Registrar pago
-          </BaseButton>
-          <button type="button" title="Aplazar cobro" @click="emit('defer', row as Invoice)">
-            <i class="fa-solid fa-calendar-plus" aria-hidden="true" />
-          </button>
-          <button
+          <BaseButton size="sm" @click="emit('pay', row as Invoice)">Registrar pago</BaseButton>
+          <BaseButton size="sm" variant="ghost" @click="emit('defer', row as Invoice)">Aplazar</BaseButton>
+          <BaseButton
             v-if="isDeferred(row as Invoice)"
-            type="button"
-            title="Deshacer última prórroga"
+            size="sm"
+            variant="ghost"
             @click="emit('undo-defer', row as Invoice)"
           >
-            <i class="fa-solid fa-clock-rotate-left" aria-hidden="true" />
-          </button>
-          <button type="button" title="Condonar" @click="emit('waive', row as Invoice)">
-            <i class="fa-solid fa-hand-holding-heart" aria-hidden="true" />
-          </button>
-          <button type="button" class="danger" title="Anular" @click="emit('cancel', row as Invoice)">
-            <i class="fa-solid fa-ban" aria-hidden="true" />
-          </button>
+            Deshacer aplazo
+          </BaseButton>
+          <BaseButton size="sm" variant="ghost" @click="emit('cancel', row as Invoice)">
+            No cobrar
+          </BaseButton>
         </div>
       </template>
     </BaseTable>
@@ -408,36 +325,6 @@ function previousDueLabel(invoice: Invoice): string {
 // En táctil no hay hover: el indicador se deja siempre visible.
 @media (hover: none) {
   .client__go { opacity: 0.6; }
-}
-
-.bulk {
-  @include flex(row, space-between, center, $sp-3);
-  flex-wrap: wrap;
-  padding: $sp-3 $sp-4;
-  border-radius: $radius-sm;
-  border: 1px solid $primary;
-  background: rgba($primary, 0.07);
-}
-
-.bulk__count {
-  @include flex(row, flex-start, center, $sp-2);
-  font-size: $fs-xs;
-  font-weight: 700;
-  color: $primary;
-}
-
-.bulk__actions {
-  @include flex(row, flex-start, center, $sp-1);
-  flex-wrap: wrap;
-}
-
-.check {
-  width: 16px;
-  height: 16px;
-  accent-color: $primary;
-  cursor: pointer;
-
-  &:disabled { cursor: not-allowed; opacity: 0.4; }
 }
 
 .collections-table__skeleton,

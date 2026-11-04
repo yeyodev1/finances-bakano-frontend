@@ -16,10 +16,12 @@ import ClientCategoryPicker from './ClientCategoryPicker.vue'
 import ClientSplitsEditor from './ClientSplitsEditor.vue'
 import ClientTagsInput from './ClientTagsInput.vue'
 import ClientBackfillPanel from './ClientBackfillPanel.vue'
+import api from '@/services/api.service'
+import { currentPeriod } from '@/stores/dashboard'
 import { useToast } from '@/composables/useToast'
 import { useFormat } from '@/composables/useFormat'
-import { PAYMENT_METHOD_OPTIONS, apiErrorMessage, useClientsStore } from '@/stores/clients'
-import type { BillingType, Client, ClientSplit, PaymentMethod } from '@/types'
+import { PAYMENT_METHOD_OPTIONS, SERVICE_OPTIONS, apiErrorMessage, useClientsStore } from '@/stores/clients'
+import type { BillingType, Client, ClientService, ClientSplit, PaymentMethod } from '@/types'
 
 const props = defineProps<{ modelValue: boolean; client: Client | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [client: Client] }>()
@@ -67,6 +69,7 @@ interface FormState {
   paymentMethod: PaymentMethod
   /** Sin valor por defecto: el vendedor elige cada cuánto paga, no se asume mensual. */
   billingType: BillingType | null
+  service: ClientService | null
   categoryId: string | null
   splits: ClientSplit[]
   notes: string
@@ -90,6 +93,7 @@ function blank(): FormState {
     collectionDayLabel: '',
     paymentMethod: 'transferencia',
     billingType: null,
+    service: null,
     categoryId: null,
     splits: [],
     notes: '',
@@ -109,7 +113,7 @@ const markPaidUntil = ref<string | null>(null)
 const showMore = ref(false)
 
 const isEdit = computed(() => !!props.client)
-const title = computed(() => (isEdit.value ? 'Editar cliente' : 'Nuevo cliente'))
+const title = computed(() => (isEdit.value ? 'Editar cliente' : 'Cerré un cliente 🎉'))
 const isMonthly = computed(() => form.billingType === 'monthly')
 const paysSomething = computed(() => form.billingType !== null && form.billingType !== 'no_charge')
 
@@ -143,6 +147,7 @@ watch(
       collectionDayLabel: client.collectionDayLabel || '',
       paymentMethod: client.paymentMethod,
       billingType: client.billingType,
+      service: client.service ?? null,
       categoryId: client.categoryId ?? null,
       splits: (client.splits || []).map((s) => ({ ...s })),
       notes: client.notes || '',
@@ -156,6 +161,14 @@ watch(
   { immediate: true },
 )
 
+const serviceModel = computed<string | number | null>({
+  get: () => form.service,
+  set: (value) => {
+    form.service = (value as ClientService) || null
+    delete errors.service
+  },
+})
+
 function pickCadence(value: BillingType) {
   form.billingType = value
   delete errors.billingType
@@ -164,6 +177,7 @@ function pickCadence(value: BillingType) {
 function validate(): boolean {
   Object.keys(errors).forEach((k) => delete errors[k])
   if (!form.name.trim()) errors.name = 'El nombre es obligatorio'
+  if (!form.service) errors.service = 'Elige qué servicio le damos'
   if (!form.billingType) errors.billingType = 'Elige cada cuánto paga'
   if (paysSomething.value && Number(form.amount) <= 0) errors.amount = 'Indica cuánto paga'
   if (isMonthly.value && !form.collectionDay && !form.collectionDayLabel.trim())
@@ -187,6 +201,7 @@ function payload(): Partial<Client> {
     collectionDayLabel: form.collectionDayLabel.trim() || undefined,
     paymentMethod: form.paymentMethod,
     billingType: form.billingType ?? 'monthly',
+    service: form.service,
     categoryId: form.categoryId,
     splits: form.splits.map((s) => ({ label: s.label, amount: Number(s.amount), day: s.day ?? null })),
     notes: form.notes.trim() || undefined,
@@ -219,15 +234,21 @@ async function submit() {
       }
     }
 
-    // Agregar un cliente no registra ninguna venta ni cobro. Si ya había una
-    // venta abierta con ese nombre, el backend la enlaza y lo dice aquí.
+    // Cliente nuevo que paga cada mes: su cobro de este mes se crea ya, para
+    // verlo en Cobros sin esperar al día 1. Si el backend enlazó una venta
+    // abierta, sus cuotas ya son los cobros y no se duplica.
     const linked = Number((saved as Client & { linkedSales?: number }).linkedSales || 0)
-    const linkedNote = linked > 0 ? ` Se enlazó ${linked} venta(s) abierta(s) con ese nombre.` : ''
+    if (!props.client && isMonthly.value && !linked && !extra) {
+      try {
+        const result = await api.generateInvoices(currentPeriod(), false, [saved._id])
+        if (result.created) extra = ' Ya está su cobro de este mes en Cobros del mes.'
+      } catch (error) {
+        toast.warning('Cliente guardado, pero no se creó su cobro', apiErrorMessage(error))
+      }
+    }
     toast.success(
-      props.client ? 'Cliente actualizado' : 'Cliente agregado',
-      props.client
-        ? `${saved.name} se guardó correctamente.${extra}`
-        : `${saved.name} quedó en Clientes. No se registró ninguna venta: eso va en Ventas.${linkedNote}${extra}`,
+      props.client ? 'Cliente actualizado' : 'Cliente guardado',
+      `${saved.name} se guardó.${extra}`,
     )
     emit('saved', saved)
     close()
@@ -245,7 +266,7 @@ function close() {
   <BaseModal
     :model-value="modelValue"
     :title="title"
-    :subtitle="isEdit ? '' : 'Quién es, cuánto paga y qué día. La venta se registra en Ventas.'"
+    :subtitle="isEdit ? '' : 'Negocio, dueño, qué le vendimos, cuánto paga y qué día. Nada más.'"
     icon="fa-solid fa-user-plus"
     size="lg"
     @update:model-value="emit('update:modelValue', $event)"
@@ -258,6 +279,23 @@ function close() {
         :error="errors.name"
         required
       />
+
+      <div class="grid">
+        <BaseInput
+          v-model="form.contactName"
+          label="Nombre del cliente (dueño)"
+          placeholder="Ana Pérez"
+          hint="Si una persona tiene varios negocios, con esto se ven juntos."
+        />
+        <BaseSelect
+          v-model="serviceModel"
+          :options="SERVICE_OPTIONS"
+          label="Servicio"
+          placeholder="¿Qué le vendemos?"
+          :error="errors.service"
+          required
+        />
+      </div>
 
       <div class="cadence" role="radiogroup" aria-label="¿Cada cuánto paga?">
         <span class="cadence__label">¿Cada cuánto paga? <span class="req">*</span></span>
@@ -297,8 +335,8 @@ function close() {
 
       <p v-if="form.billingType === 'special'" class="hint">
         <i class="fa-solid fa-lightbulb" aria-hidden="true" />
-        Como no es mensual, no se le genera cobro automático: el cobro con su fecha se registra en
-        <strong>Ventas → Registrar venta</strong>.
+        Como no es mensual, no se le genera cobro automático: cada cuota o pago con su fecha se crea en
+        <strong>Cobros del mes → Nuevo cobro</strong>.
       </p>
 
       <button
@@ -316,7 +354,6 @@ function close() {
         <fieldset class="group">
           <legend><i class="fa-solid fa-address-book" aria-hidden="true" /> Contacto</legend>
           <div class="grid grid--3">
-            <BaseInput v-model="form.contactName" label="Nombre de contacto" placeholder="Ana Pérez" />
             <BaseInput
               v-model="form.contactEmail"
               label="Email"
@@ -389,7 +426,7 @@ function close() {
     <template #footer>
       <BaseButton variant="ghost" icon="fa-solid fa-xmark" @click="close">Cancelar</BaseButton>
       <BaseButton icon="fa-solid fa-floppy-disk" :loading="store.saving" @click="submit">
-        {{ isEdit ? 'Guardar cambios' : 'Agregar cliente' }}
+        {{ isEdit ? 'Guardar cambios' : 'Guardar cliente' }}
       </BaseButton>
     </template>
   </BaseModal>

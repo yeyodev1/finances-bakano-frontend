@@ -1,70 +1,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { BaseSkeleton, BaseStatCard } from '@/components/base'
-import DashboardIdealKpi from './DashboardIdealKpi.vue'
 import { useFormat } from '@/composables/useFormat'
-import type { DashboardSummary, DelinquencyReport } from '@/types'
+import type { DashboardSummary } from '@/types'
 
 const props = withDefaults(
-  defineProps<{
-    summary?: DashboardSummary | null
-    delinquency?: DelinquencyReport | null
-    loading?: boolean
-  }>(),
-  { summary: null, delinquency: null, loading: false },
+  defineProps<{ summary?: DashboardSummary | null; loading?: boolean }>(),
+  { summary: null, loading: false },
 )
 
 const { formatMoney } = useFormat()
 
-interface Kpi {
-  key: string
-  label: string
-  value: string
-  icon: string
-  tone: string
-  hint?: string
-}
-
-/** El backend puede no exponer todavía los contadores de acceso: son opcionales. */
-type SummaryWithAccess = DashboardSummary & {
-  shouldBeClosedCount?: number
-  accessOverridesCount?: number
-}
-
-const kpis = computed<Kpi[]>(() => {
-  const s = props.summary as SummaryWithAccess | null
+const kpis = computed(() => {
+  const s = props.summary
   if (!s) return []
-
-  const rate = Math.round((s.collectionRate ?? 0) * (s.collectionRate <= 1 ? 100 : 1))
-
-  const accessKpis: Kpi[] = []
-
-  if (typeof s.shouldBeClosedCount === 'number') {
-    accessKpis.push({
-      key: 'should-be-closed',
-      label: 'Deberían estar cerrados',
-      value: String(s.shouldBeClosedCount),
-      icon: 'fa-solid fa-triangle-exclamation',
-      tone: s.shouldBeClosedCount > 0 ? 'danger' : 'neutral',
-      hint: 'Mora por encima de la gracia',
-    })
-  }
-
-  if (typeof s.accessOverridesCount === 'number') {
-    accessKpis.push({
-      key: 'access-overrides',
-      label: 'Accesos por excepción',
-      value: String(s.accessOverridesCount),
-      icon: 'fa-solid fa-unlock-keyhole',
-      tone: s.accessOverridesCount > 0 ? 'warning' : 'neutral',
-      hint: 'Abiertos a propósito',
-    })
-  }
-
+  const rate = Math.round(s.collectionRate ?? 0)
   return [
     {
       key: 'expected',
-      label: 'Facturado',
+      label: 'Total del mes',
       value: formatMoney(s.expectedAmount),
       icon: 'fa-solid fa-file-invoice-dollar',
       tone: 'primary',
@@ -76,88 +30,32 @@ const kpis = computed<Kpi[]>(() => {
       value: formatMoney(s.collectedAmount),
       icon: 'fa-solid fa-circle-check',
       tone: 'success',
-      hint: `${s.invoicesPaid} pagados`,
+      hint: `${rate}% · ${s.invoicesPaid} pagados`,
     },
     {
       key: 'pending',
-      label: 'Pendiente',
+      label: 'Por cobrar',
       value: formatMoney(s.pendingAmount),
       icon: 'fa-solid fa-hourglass-half',
       tone: 'warning',
-      hint: `${s.invoicesPending} por cobrar`,
+      hint: `${s.invoicesPending} al día`,
     },
     {
       key: 'overdue',
       label: 'Vencido',
       value: formatMoney(s.overdueAmount),
       icon: 'fa-solid fa-triangle-exclamation',
-      tone: 'danger',
+      tone: s.overdueAmount > 0 ? 'danger' : 'neutral',
       hint: `${s.invoicesOverdue} en mora`,
-    },
-    {
-      key: 'rate',
-      label: '% de cobranza',
-      value: `${rate}%`,
-      icon: 'fa-solid fa-gauge-high',
-      tone: rate >= 80 ? 'success' : rate >= 50 ? 'warning' : 'danger',
-      hint: 'Del total facturado',
-    },
-    {
-      key: 'clients',
-      label: 'Clientes activos',
-      value: String(s.clientsActive),
-      icon: 'fa-solid fa-users',
-      tone: 'info',
-      hint: `${s.clientsTotal} en total`,
-    },
-    {
-      key: 'workspaces',
-      label: 'Espacios desactivados',
-      value: String(s.workspacesDeactivated),
-      icon: 'fa-solid fa-layer-group',
-      tone: s.workspacesDeactivated > 0 ? 'danger' : 'neutral',
-      hint: 'Por falta de pago',
-    },
-    {
-      key: 'archived',
-      label: 'Clientes de baja',
-      value: String(s.archivedClients ?? 0),
-      icon: 'fa-solid fa-user-slash',
-      tone: (s.archivedClients ?? 0) > 0 ? 'warning' : 'neutral',
-      hint: 'Historial conservado',
-    },
-    ...accessKpis,
-    ...moraKpi.value,
-  ]
-})
-
-/** Mora promedio de los vencidos hoy. Sin vencidos, 0 y en verde. */
-const moraKpi = computed<Kpi[]>(() => {
-  const d = props.delinquency
-  if (!d) return []
-  const avg = d.current.avgDays
-  const label = avg === 1 ? '1 día' : `${Number.isInteger(avg) ? avg : avg.toFixed(1)} días`
-  return [
-    {
-      key: 'mora',
-      label: 'Mora promedio',
-      value: label,
-      icon: 'fa-solid fa-clock-rotate-left',
-      tone: !d.current.invoices ? 'success' : avg <= 3 ? 'success' : avg <= 10 ? 'warning' : 'danger',
-      hint: d.current.invoices
-        ? `${d.current.invoices} vencido(s) · costumbre ${d.historical.avgDays} días`
-        : `Nada vencido · costumbre ${d.historical.avgDays} días`,
     },
   ]
 })
 </script>
 
 <template>
-  <DashboardIdealKpi :summary="summary" :loading="loading" />
-
   <section class="kpis" aria-label="Indicadores del período">
     <template v-if="loading && !summary">
-      <BaseSkeleton v-for="n in 8" :key="n" height="104px" radius="14px" class="kpis__item" />
+      <BaseSkeleton v-for="n in 4" :key="n" height="104px" radius="14px" class="kpis__item" />
     </template>
 
     <TransitionGroup v-else name="list" tag="div" class="kpis__grid">

@@ -3,11 +3,11 @@ import { computed, onMounted } from 'vue'
 import { BaseButton, BaseEmptyState } from '@/components/base'
 import DashboardHeader from './DashboardHeader.vue'
 import DashboardKpis from './DashboardKpis.vue'
-import DashboardCharts from './DashboardCharts.vue'
 import DashboardOverdueList from './DashboardOverdueList.vue'
 import DashboardUpcomingList from './DashboardUpcomingList.vue'
 import DashboardOverrideBand from './DashboardOverrideBand.vue'
-import DashboardDelinquency from './DashboardDelinquency.vue'
+import DashboardServices from './DashboardServices.vue'
+import DashboardNewSales from './DashboardNewSales.vue'
 import { useDashboardStore } from '@/stores/dashboard'
 
 const dashboard = useDashboardStore()
@@ -43,25 +43,11 @@ onMounted(() => {
     />
 
     <template v-else>
-      <DashboardKpis
-        :summary="dashboard.summary"
-        :delinquency="dashboard.delinquency"
-        :loading="dashboard.loading"
-      />
+      <DashboardKpis :summary="dashboard.summary" :loading="dashboard.loading" />
 
-      <DashboardDelinquency
-        :report="dashboard.delinquency"
-        :loading="dashboard.loading && !dashboard.lastLoadedAt"
-      />
+      <DashboardNewSales />
 
-      <DashboardCharts
-        :revenue="dashboard.revenue"
-        :status-breakdown="dashboard.statusBreakdown"
-        :method-breakdown="dashboard.methodBreakdown"
-        :top-clients="dashboard.topClients"
-        :aging="dashboard.aging"
-        :loading="dashboard.loading && !dashboard.lastLoadedAt"
-      />
+      <DashboardServices :summary="dashboard.summary" :loading="dashboard.loading" />
 
       <section class="dashboard__lists">
         <DashboardOverdueList

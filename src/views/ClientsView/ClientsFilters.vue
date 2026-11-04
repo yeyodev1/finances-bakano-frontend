@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { BaseSearchInput, BaseSelect, BaseButton } from '@/components/base'
 import {
   ARCHIVED_FILTER_OPTIONS,
-  BILLING_TYPE_LABELS,
-  BILLING_TYPE_OPTIONS,
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_METHOD_OPTIONS,
+  SERVICE_LABELS,
+  SERVICE_OPTIONS,
   useClientsStore,
 } from '@/stores/clients'
-import type { BillingType, PaymentMethod, SelectOption } from '@/types'
+import type { ClientService, SelectOption } from '@/types'
 
 const emit = defineEmits<{ change: [] }>()
 
@@ -21,52 +19,21 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'inactive', label: 'Inactivos', icon: 'fa-solid fa-circle-xmark', color: 'danger' },
 ]
 
-const WORKSPACE_OPTIONS: SelectOption[] = [
-  { value: 'all', label: 'Espacio: todos', icon: 'fa-solid fa-layer-group' },
-  { value: 'linked', label: 'Con espacio vinculado', icon: 'fa-solid fa-link' },
-  { value: 'unlinked', label: 'Sin espacio vinculado', icon: 'fa-solid fa-link-slash' },
-]
-
 function onSearch(value: string) {
   store.filters.q = value
   emit('change')
 }
 
-/** Rubro del cliente. Las categorías se crean desde la app, no están fijas. */
-onMounted(() => {
-  if (!store.categories.length) store.fetchCategories().catch(() => undefined)
-})
+const SERVICE_FILTER_OPTIONS: SelectOption[] = [
+  { value: 'all', label: 'Todos los servicios', icon: 'fa-solid fa-layer-group' },
+  ...SERVICE_OPTIONS,
+  { value: 'none', label: 'Falta servicio', icon: 'fa-solid fa-circle-question', color: 'warning' },
+]
 
-const categoryOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: 'Todas las categorías', icon: 'fa-solid fa-tags' },
-  ...store.categories.map((c) => ({
-    value: c._id,
-    label: c.name,
-    icon: c.icon || 'fa-solid fa-tag',
-    description: c.clientCount ? `${c.clientCount} cliente(s)` : undefined,
-  })),
-])
-
-const category = computed<string | number | null>({
-  get: () => store.filters.categoryId ?? 'all',
+const service = computed<string | number | null>({
+  get: () => store.filters.service ?? 'all',
   set: (value) => {
-    store.filters.categoryId = value === 'all' || value === null ? null : String(value)
-    emit('change')
-  },
-})
-
-const method = computed<string | number | null>({
-  get: () => store.filters.paymentMethod ?? 'all',
-  set: (value) => {
-    store.filters.paymentMethod = value === 'all' || value === null ? null : (value as PaymentMethod)
-    emit('change')
-  },
-})
-
-const billing = computed<string | number | null>({
-  get: () => store.filters.billingType ?? 'all',
-  set: (value) => {
-    store.filters.billingType = value === 'all' || value === null ? null : (value as BillingType)
+    store.filters.service = value === 'all' || value === null ? null : (value as ClientService | 'none')
     emit('change')
   },
 })
@@ -75,15 +42,6 @@ const status = computed<string | number | null>({
   get: () => (store.filters.isActive === null ? 'all' : store.filters.isActive ? 'active' : 'inactive'),
   set: (value) => {
     store.filters.isActive = value === 'active' ? true : value === 'inactive' ? false : null
-    emit('change')
-  },
-})
-
-const workspace = computed<string | number | null>({
-  get: () =>
-    store.filters.hasWorkspace === null ? 'all' : store.filters.hasWorkspace ? 'linked' : 'unlinked',
-  set: (value) => {
-    store.filters.hasWorkspace = value === 'linked' ? true : value === 'unlinked' ? false : null
     emit('change')
   },
 })
@@ -100,16 +58,6 @@ const archived = computed<string | number | null>({
   },
 })
 
-const methodOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: 'Todos los métodos', icon: 'fa-solid fa-wallet' },
-  ...PAYMENT_METHOD_OPTIONS,
-])
-
-const billingOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: 'Toda facturación', icon: 'fa-solid fa-file-invoice' },
-  ...BILLING_TYPE_OPTIONS,
-])
-
 interface Chip {
   key: string
   label: string
@@ -120,29 +68,17 @@ const chips = computed<Chip[]>(() => {
   const list: Chip[] = []
   const f = store.filters
   if (f.q.trim()) list.push({ key: 'q', label: `"${f.q.trim()}"`, icon: 'fa-solid fa-magnifying-glass' })
-  if (f.paymentMethod)
+  if (f.service)
     list.push({
-      key: 'paymentMethod',
-      label: PAYMENT_METHOD_LABELS[f.paymentMethod],
-      icon: 'fa-solid fa-wallet',
-    })
-  if (f.billingType)
-    list.push({
-      key: 'billingType',
-      label: BILLING_TYPE_LABELS[f.billingType],
-      icon: 'fa-solid fa-file-invoice',
+      key: 'service',
+      label: f.service === 'none' ? 'Falta servicio' : SERVICE_LABELS[f.service],
+      icon: 'fa-solid fa-layer-group',
     })
   if (f.isActive !== null)
     list.push({
       key: 'isActive',
       label: f.isActive ? 'Activos' : 'Inactivos',
       icon: 'fa-solid fa-toggle-on',
-    })
-  if (f.hasWorkspace !== null)
-    list.push({
-      key: 'hasWorkspace',
-      label: f.hasWorkspace ? 'Con espacio' : 'Sin espacio',
-      icon: 'fa-solid fa-layer-group',
     })
   if (f.archived !== false)
     list.push({
@@ -155,10 +91,8 @@ const chips = computed<Chip[]>(() => {
 
 function removeChip(key: string) {
   if (key === 'q') store.filters.q = ''
-  if (key === 'paymentMethod') store.filters.paymentMethod = null
-  if (key === 'billingType') store.filters.billingType = null
+  if (key === 'service') store.filters.service = null
   if (key === 'isActive') store.filters.isActive = null
-  if (key === 'hasWorkspace') store.filters.hasWorkspace = null
   if (key === 'archived') store.filters.archived = false
   emit('change')
 }
@@ -180,11 +114,8 @@ function clearAll() {
       />
 
       <div class="filters__selects">
-        <BaseSelect v-model="method" :options="methodOptions" placeholder="Método de pago" />
-        <BaseSelect v-model="billing" :options="billingOptions" placeholder="Facturación" />
-        <BaseSelect v-model="category" :options="categoryOptions" placeholder="Categoría" searchable />
+        <BaseSelect v-model="service" :options="SERVICE_FILTER_OPTIONS" placeholder="Servicio" />
         <BaseSelect v-model="status" :options="STATUS_OPTIONS" placeholder="Estado" />
-        <BaseSelect v-model="workspace" :options="WORKSPACE_OPTIONS" placeholder="Espacio" />
         <BaseSelect
           v-model="archived"
           :options="ARCHIVED_FILTER_OPTIONS"
@@ -243,7 +174,7 @@ function clearAll() {
   flex: 1;
 
   @include lg {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: $sp-3;
   }
 }

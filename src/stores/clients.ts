@@ -5,6 +5,7 @@ import type {
   BillingType,
   Client,
   ClientCategory,
+  ClientService,
   PaymentMethod,
   SelectOption,
 } from '@/types'
@@ -57,6 +58,46 @@ export const BILLING_TYPE_OPTIONS: SelectOption[] = (
     value === 'monthly' ? 'fa-solid fa-calendar-days' : value === 'no_charge' ? 'fa-solid fa-ban' : 'fa-solid fa-star',
 }))
 
+export const SERVICE_LABELS: Record<ClientService, string> = {
+  trafico_completo: 'Tráfico · Contenido completo',
+  trafico_guiones: 'Tráfico · Guiones y pauta',
+  web_tienda: 'Web · Tienda en línea',
+  web_informativa: 'Web · Informativa',
+  automatizacion: 'Automatizaciones',
+}
+
+export const SERVICE_ICONS: Record<ClientService, string> = {
+  trafico_completo: 'fa-solid fa-bullhorn',
+  trafico_guiones: 'fa-solid fa-pen-nib',
+  web_tienda: 'fa-solid fa-cart-shopping',
+  web_informativa: 'fa-solid fa-globe',
+  automatizacion: 'fa-solid fa-robot',
+}
+
+export const SERVICE_OPTIONS: SelectOption[] = (Object.keys(SERVICE_LABELS) as ClientService[]).map(
+  (value) => ({ value, label: SERVICE_LABELS[value], icon: SERVICE_ICONS[value] }),
+)
+
+/** Etiqueta corta para listas; sin servicio se marca como pendiente de trackear. */
+export function serviceLabel(service?: ClientService | null): string {
+  return service ? SERVICE_LABELS[service] : 'Falta servicio'
+}
+
+const NEW_SALE_DAYS = 30
+
+/**
+ * Venta nueva: entró al sistema hace 30 días o menos y su servicio arranca en ese
+ * rango o después. Así un cliente viejo que se carga hoy con fecha de inicio
+ * antigua no se confunde con una venta.
+ */
+export function isNewSale(client?: Pick<Client, 'createdAt' | 'startDate'> | null): boolean {
+  if (!client?.createdAt) return false
+  const limit = Date.now() - NEW_SALE_DAYS * 86400000
+  const created = new Date(client.createdAt).getTime()
+  const start = client.startDate ? new Date(client.startDate).getTime() : created
+  return created >= limit && start >= limit
+}
+
 /** `false` = solo activos (por defecto), `true` = solo archivados, `'all'` = todos. */
 export type ArchivedFilter = boolean | 'all'
 
@@ -64,6 +105,8 @@ export interface ClientFilters {
   q: string
   paymentMethod: PaymentMethod | null
   billingType: BillingType | null
+  /** 'none' = clientes sin servicio. */
+  service: ClientService | 'none' | null
   isActive: boolean | null
   hasWorkspace: boolean | null
   tag: string | null
@@ -118,6 +161,7 @@ export function emptyClientFilters(): ClientFilters {
     q: '',
     paymentMethod: null,
     billingType: null,
+    service: null,
     isActive: null,
     hasWorkspace: null,
     tag: null,
@@ -167,6 +211,7 @@ export const useClientsStore = defineStore('clients', {
       if (f.q.trim()) n += 1
       if (f.paymentMethod) n += 1
       if (f.billingType) n += 1
+      if (f.service) n += 1
       if (f.isActive !== null) n += 1
       if (f.hasWorkspace !== null) n += 1
       if (f.tag) n += 1
@@ -218,6 +263,7 @@ export const useClientsStore = defineStore('clients', {
           q: f.q.trim() || undefined,
           paymentMethod: f.paymentMethod ?? undefined,
           billingType: f.billingType ?? undefined,
+          service: f.service ?? undefined,
           isActive: f.isActive ?? undefined,
           hasWorkspace: f.hasWorkspace ?? undefined,
           tag: f.tag ?? undefined,

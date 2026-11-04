@@ -126,7 +126,12 @@ async function submit() {
       </section>
 
       <div class="grid">
-        <BaseCurrencyInput v-model="form.amount" label="Monto del pago" :error="errors.amount" />
+        <BaseCurrencyInput
+          v-model="form.amount"
+          label="Monto del pago"
+          :hint="`Saldo ${formatMoney(balance)}. Si cobras menos, el resto queda pendiente.`"
+          :error="errors.amount"
+        />
         <BaseDatePicker
           v-model="form.paidAt"
           label="Fecha de pago"

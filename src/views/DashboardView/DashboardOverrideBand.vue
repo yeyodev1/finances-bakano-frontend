@@ -8,7 +8,6 @@ import { apiErrorMessage } from '@/stores/clients'
 import { useWorkspacesStore } from '@/stores/workspaces'
 import type { Client } from '@/types'
 
-const MAX_VISIBLE = 3
 
 const store = useWorkspacesStore()
 const router = useRouter()
@@ -16,8 +15,6 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 const items = computed<Client[]>(() => store.activeOverrides)
-const visible = computed(() => items.value.slice(0, MAX_VISIBLE))
-const rest = computed(() => Math.max(0, items.value.length - MAX_VISIBLE))
 
 onMounted(() => {
   void store.loadOverrides()
@@ -49,7 +46,7 @@ async function revoke(client: Client) {
 <template>
   <section v-if="items.length" class="dob" aria-label="Accesos abiertos por excepción">
     <AccessOverrideBanner
-      v-for="client in visible"
+      v-for="client in items"
       :key="client._id"
       compact
       :override="client.accessOverride"
@@ -61,10 +58,6 @@ async function revoke(client: Client) {
       @open="open(client)"
     />
 
-    <RouterLink v-if="rest" to="/espacios" class="dob__more">
-      <i class="fa-solid fa-arrow-right" aria-hidden="true" />
-      Ver {{ rest }} {{ rest === 1 ? 'excepción más' : 'excepciones más' }}
-    </RouterLink>
   </section>
 </template>
 
@@ -74,16 +67,4 @@ async function revoke(client: Client) {
   margin-bottom: $sp-4;
 }
 
-.dob__more {
-  @include flex(row, flex-start, center, $sp-2);
-  align-self: flex-start;
-  font-size: $fs-xs;
-  font-weight: 700;
-  color: $alert-error;
-  transition: gap $transition-fast;
-
-  &:hover {
-    gap: $sp-3;
-  }
-}
 </style>

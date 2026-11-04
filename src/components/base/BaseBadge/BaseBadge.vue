@@ -21,7 +21,7 @@ const text = computed(() => props.label || BADGE_LABELS[props.variant])
   >
     <span v-if="props.dot" class="badge__dot" aria-hidden="true" />
     <i v-else-if="props.icon" class="badge__icon" :class="props.icon" aria-hidden="true" />
-    <span class="badge__text">{{ text }}</span>
+    <span class="badge__text"><slot>{{ text }}</slot></span>
   </span>
 </template>
 

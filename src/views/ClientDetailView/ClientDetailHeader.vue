@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { BaseBadge, BaseButton, BaseWorkspaceAvatar } from '@/components/base'
-import { AccessOverrideBanner } from '@/components/access'
+import ClientAccessCard from './ClientAccessCard.vue'
 import { useFormat } from '@/composables/useFormat'
 import { isOverrideActive } from '@/composables/useAccessOverride'
-import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS } from '@/stores/clients'
+import { PAYMENT_METHOD_ICONS, PAYMENT_METHOD_LABELS, SERVICE_ICONS, serviceLabel } from '@/stores/clients'
 import {
   archiveReasonIcon,
   archiveReasonLabel,
@@ -27,6 +27,7 @@ const emit = defineEmits<{
   back: []
   grant: []
   revoke: []
+  pay: []
 }>()
 
 const { formatMoney, formatDate, dayLabel } = useFormat()
@@ -57,12 +58,6 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
       <i class="fa-solid fa-arrow-left" aria-hidden="true" /> Volver a clientes
     </button>
 
-    <AccessOverrideBanner
-      :override="client.accessOverride"
-      :overdue-amount="client.overdueAmount"
-      :max-days-overdue="client.maxDaysOverdue"
-      @revoke="emit('revoke')"
-    />
 
     <div class="head__main">
       <BaseWorkspaceAvatar
@@ -75,9 +70,17 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
 
       <div class="head__id">
         <h1>{{ client.name }}</h1>
-        <p v-if="client.legalName" class="head__legal">{{ client.legalName }}</p>
+        <p v-if="client.contactName || client.legalName" class="head__legal">
+          {{ [client.contactName, client.legalName].filter(Boolean).join(' · ') }}
+        </p>
 
         <div class="head__badges">
+          <BaseBadge
+            :variant="client.service ? 'secondary' : 'warning'"
+            :icon="client.service ? SERVICE_ICONS[client.service] : 'fa-solid fa-circle-question'"
+          >
+            {{ serviceLabel(client.service) }}
+          </BaseBadge>
           <BaseBadge
             v-if="client.isArchived"
             :variant="reasonVariant"
@@ -87,18 +90,6 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
           </BaseBadge>
           <BaseBadge v-else :variant="client.isActive ? 'success' : 'danger'" icon="fa-solid fa-circle">
             {{ client.isActive ? 'Cliente activo' : 'Cliente inactivo' }}
-          </BaseBadge>
-          <BaseBadge v-if="client.workspaceId" :variant="client.workspaceIsActive === false ? 'warning' : 'info'" icon="fa-solid fa-layer-group">
-            {{ client.workspaceName }} · {{ client.workspaceIsActive === false ? 'espacio inactivo' : 'espacio activo' }}
-          </BaseBadge>
-          <BaseBadge v-else variant="neutral" icon="fa-solid fa-link-slash">Sin espacio vinculado</BaseBadge>
-          <BaseBadge
-            v-if="client.shouldBeClosed && !overrideActive"
-            variant="danger"
-            icon="fa-solid fa-triangle-exclamation"
-            pulse
-          >
-            Debería estar cerrado
           </BaseBadge>
         </div>
 
@@ -123,6 +114,9 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
       <div class="head__amount">
         <span class="head__amount-value">{{ formatMoney(client.amount) }}</span>
         <span class="head__amount-label">
+          {{ client.billingType === 'monthly' ? 'al mes' : client.billingType === 'no_charge' ? 'no paga' : 'pago único / a convenir' }}
+        </span>
+        <span class="head__amount-label">
           <i :class="PAYMENT_METHOD_ICONS[client.paymentMethod]" aria-hidden="true" />
           {{ PAYMENT_METHOD_LABELS[client.paymentMethod] }}
         </span>
@@ -140,42 +134,28 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
       <i class="fa-solid fa-quote-left" aria-hidden="true" /> {{ client.archiveNotes }}
     </p>
 
+    <ClientAccessCard
+      :client="client"
+      :can-grant="canGrant"
+      @pay="emit('pay')"
+      @grant="emit('grant')"
+      @revoke="emit('revoke')"
+      @link="emit('link')"
+    />
+
     <div class="head__actions">
-      <BaseButton size="sm" icon="fa-solid fa-pen" @click="emit('edit')">Editar</BaseButton>
-      <BaseButton
-        v-if="!client.isArchived"
-        size="sm"
-        :variant="client.isActive ? 'outline' : 'success'"
-        :icon="client.isActive ? 'fa-solid fa-toggle-off' : 'fa-solid fa-toggle-on'"
-        @click="emit('toggle')"
-      >
-        {{ client.isActive ? 'Desactivar' : 'Activar' }}
+      <BaseButton size="sm" variant="outline" icon="fa-solid fa-pen" @click="emit('edit')">Editar datos</BaseButton>
+      <BaseButton v-if="client.workspaceId" size="sm" variant="ghost" icon="fa-solid fa-link" @click="emit('link')">
+        Cambiar espacio de Metrics
       </BaseButton>
-      <BaseButton size="sm" variant="outline" icon="fa-solid fa-link" @click="emit('link')">Vincular espacio</BaseButton>
-      <BaseButton
-        v-if="canGrant"
-        size="sm"
-        variant="danger"
-        icon="fa-solid fa-unlock-keyhole"
-        @click="emit('grant')"
-      >
-        Abrir por excepción
+      <BaseButton v-if="!client.isArchived" size="sm" variant="ghost" @click="emit('toggle')">
+        {{ client.isActive ? 'Pausar cobros' : 'Reanudar cobros' }}
       </BaseButton>
-      <BaseButton size="sm" variant="ghost" icon="fa-solid fa-clock-rotate-left" @click="emit('backfill')">
-        Generar retroactivos
-      </BaseButton>
-      <BaseButton
-        v-if="client.isArchived"
-        size="sm"
-        variant="success"
-        icon="fa-solid fa-rotate-left"
-        @click="emit('reactivate')"
-      >
+      <BaseButton size="sm" variant="ghost" @click="emit('backfill')">Cobros de meses pasados</BaseButton>
+      <BaseButton v-if="client.isArchived" size="sm" variant="success" icon="fa-solid fa-rotate-left" @click="emit('reactivate')">
         Reactivar cliente
       </BaseButton>
-      <BaseButton v-else size="sm" variant="danger" icon="fa-solid fa-box-archive" @click="emit('archive')">
-        Dar de baja
-      </BaseButton>
+      <BaseButton v-else size="sm" variant="ghost" class="head__danger" @click="emit('archive')">Dar de baja</BaseButton>
     </div>
   </header>
 </template>
@@ -314,5 +294,9 @@ const avatarStatus = computed<'active' | 'inactive' | 'override'>(() => {
   flex-wrap: wrap;
   border-top: 1px solid $border-color;
   padding-top: $sp-4;
+}
+
+.head__danger {
+  color: $alert-error;
 }
 </style>

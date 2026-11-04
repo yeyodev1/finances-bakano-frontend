@@ -32,7 +32,7 @@ watch(
 )
 
 const isWaive = computed(() => props.action === 'waive')
-const title = computed(() => (isWaive.value ? 'Condonar cobro' : 'Anular cobro'))
+const title = computed(() => (isWaive.value ? 'Condonar cobro' : 'No cobrar este mes'))
 const error = computed(() => (touched.value && !reason.value.trim() ? 'El motivo es obligatorio' : ''))
 
 function submit() {
@@ -55,7 +55,7 @@ function submit() {
         <p v-if="isWaive">
           El cobro dejará de contar como ingreso esperado y no generará recordatorios ni mora.
         </p>
-        <p v-else>El cobro quedará anulado y desaparecerá del total esperado del período.</p>
+        <p v-else>Este cobro se quita del mes y deja de contar como dinero por entrar. Escribe por qué.</p>
       </div>
 
       <div v-if="invoice" class="reason__invoice">
@@ -85,7 +85,7 @@ function submit() {
         :loading="loading"
         @click="submit"
       >
-        {{ isWaive ? 'Condonar' : 'Anular' }}
+        {{ isWaive ? 'Condonar' : 'Sí, no cobrar' }}
       </BaseButton>
     </template>
   </BaseModal>

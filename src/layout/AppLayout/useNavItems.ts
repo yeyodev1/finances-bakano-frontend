@@ -9,22 +9,7 @@ export interface NavItem {
   icon: string
 }
 
-const ORDER = [
-  'Dashboard',
-  'Collections',
-  'Clients',
-  'Payments',
-  'Submissions',
-  'Stripe',
-  'CrmConsumption',
-  'Sales',
-  'Bank',
-  'Retention',
-  'Churn',
-  'Workspaces',
-  'Users',
-  'Settings',
-]
+const ORDER = ['Dashboard', 'Collections', 'Clients', 'Payments', 'Users', 'Settings']
 
 const PRIMARY = ['Dashboard', 'Collections', 'Clients', 'Payments']
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { BaseButton, BaseStatCard } from '@/components/base'
+import { BaseButton } from '@/components/base'
 import PaymentsFilters from './PaymentsFilters.vue'
 import PaymentsTable from './PaymentsTable.vue'
 import InvoicePickerModal from './InvoicePickerModal.vue'
@@ -23,26 +23,10 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const { formatMoney, formatDateShort, formatPeriod } = useFormat()
 
-const total = computed(() => store.filteredAmount)
-
 // Cobrado vs por cobrar del período filtrado (o del mes en curso si no hay).
 const summaryPeriod = computed(() => store.filters.period || currentPeriod())
-const { summary, reload: reloadSummary } = usePeriodSummary(summaryPeriod)
+const { reload: reloadSummary } = usePeriodSummary(summaryPeriod)
 
-const collectedHint = computed(() => {
-  const s = summary.value
-  if (!s) return formatPeriod(summaryPeriod.value)
-  return `${formatPeriod(summaryPeriod.value)} · ${s.paid} de ${s.total} cobros pagados`
-})
-
-const pendingHint = computed(() => {
-  const s = summary.value
-  if (!s) return formatPeriod(summaryPeriod.value)
-  const open = s.pending + s.overdue
-  return s.overdue
-    ? `${open} abiertos · ${s.overdue} vencidos`
-    : `${open} ${open === 1 ? 'cobro abierto' : 'cobros abiertos'}`
-})
 
 async function load() {
   try {
@@ -156,30 +140,6 @@ function exportCsv() {
         Registrar pago
       </BaseButton>
     </header>
-
-    <div class="payments__stats">
-      <BaseStatCard
-        label="Cobrado"
-        :value="formatMoney(summary?.collectedAmount ?? 0)"
-        icon="fa-solid fa-circle-check"
-        color="success"
-        :hint="collectedHint"
-      />
-      <BaseStatCard
-        label="Por cobrar"
-        :value="formatMoney(summary?.pendingAmount ?? 0)"
-        icon="fa-solid fa-hourglass-half"
-        color="warning"
-        :hint="pendingHint"
-      />
-      <BaseStatCard
-        label="Pagos registrados"
-        :value="String(store.total)"
-        icon="fa-solid fa-list-check"
-        color="primary"
-        :hint="`${formatMoney(total)} en ${store.items.length} pagos listados`"
-      />
-    </div>
 
     <PaymentsFilters @change="load" @export="exportCsv" />
 
